@@ -1,0 +1,21 @@
+{
+  "name": "mcmakerspace-backend",
+  "version": "1.0.0",
+  "description": "Back-End for MC Makerspace Website",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "concurrent": "^0.3.2",
+    "express": "^4.19.2",
+    "mysql": "^2.18.1",
+    "typescript": "^5.5.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.1.0"
+  }
+}
