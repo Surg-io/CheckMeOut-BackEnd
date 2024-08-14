@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import fileo from 'fs';
+import {GetUserId, GetUserData} from '../database.js';
 
 const port: number = 3000;
 const app: Express = express();
@@ -12,7 +13,7 @@ app.get("/", (req: Request, res: Response): void => {
 });
 
 // register route, does it need any info? or will use the request body
-app.put("/register", (req: Request, res: Response): void => {
+app.put("/register", async (req: Request, res: Response): Promise<void> => {
     // talk to mysql database and update the database
     // rerq body should give me the few items from the form
 
@@ -26,10 +27,14 @@ app.put("/register", (req: Request, res: Response): void => {
     let number_id = Number(student_id);
     if (isNaN(number_id)) {
         res.status(200).send('Success!'); 
+        const user_id = await GetUserId(first_name, last_name, major, student_id)
+        // handle error, or output from databas search.
     }
     else {
         res.status(200).send('Failure, bad id sent!');
     }
+
+   
 
     res.status(400).send('bad request');
     res.status(404).send('not found');

@@ -3,8 +3,13 @@
   "version": "1.0.0",
   "description": "Back-End for MC Makerspace Website",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npx tsc",
+    "prestart": "npm run build",
+    "start": "node src/index.js",
+    "preserver": "npm run build",
+    "server": "concurrently \"npx tsc -w\"  \"nodemon src/index.js\""
   },
   "author": "",
   "license": "ISC",
