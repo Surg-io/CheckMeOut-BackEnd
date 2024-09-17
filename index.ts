@@ -1,10 +1,9 @@
 import express, { Express, Request, Response } from "express";
 import fileo from 'fs';
-import {GetUserId, GetUserData} from '../database.js';
+import {GetUserId, GetUserData} from './public/sql/database.js';
 
-const port: number = 3000;
+const port: Number = Number(process.env.PORT);
 const app: Express = express();
-app.set('view engine', 'ejs');
 app.use(express.static('public'));
 let start = 1;
 

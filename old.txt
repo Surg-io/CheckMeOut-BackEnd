@@ -1,4 +1,4 @@
-import mysql from 'mysql2';
+import mysql, { QueryResult } from 'mysql2';
 import dotenv from 'dotenv';
 import { query } from 'express';
 dotenv.config();
@@ -11,7 +11,7 @@ const pool = mysql.createPool({
 }).promise();
 
 
-export async function GetUserData () {
+export async function GetUserData (): Promise<QueryResult> {
     const [rows] = await pool.query("SELECT * FROM student");
     return rows;
 }
@@ -20,7 +20,7 @@ const data = await GetUserData();
 console.log('DATA:  ',data);
 
 
-export async function GetUserId (first_name, last_name, major, student_id) { // get all student info for using in the frontend when needed??
+export async function GetUserId (first_name: String, last_name:String, major: String, student_id: String): Promise<QueryResult | void> { // get all student info for using in the frontend when needed??
     try { // might handle cases for matching first name, ask is this you? or not etc..
     const [user_rows] = await pool
                               .query(`SELECT id 
@@ -37,3 +37,9 @@ export async function GetUserId (first_name, last_name, major, student_id) { // 
         return 
     }
 }
+
+
+
+/*
+  "include": ["src/index.js", "public/sql/*"],
+  "exclude": ["node_modules"]*/
