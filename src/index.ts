@@ -23,7 +23,7 @@ app.put("/register", async (req: Request, res: Response): Promise<void> => {
     // let email: String = req.params.email;
     // let major: String = req.params.major;
     // let student_id: String = req.params.id;
-
+    
     let number_id = Number(student_id);
     if (isNaN(number_id)) {
         res.status(200).send('Success!'); 
@@ -31,14 +31,11 @@ app.put("/register", async (req: Request, res: Response): Promise<void> => {
         // handle error, or output from databas search.
     }
     else {
-        res.status(200).send('Failure, bad id sent!');
+        res.status(400).send('Failure, bad id sent!');
     }
 
-   
-
     res.status(400).send('bad request');
-    res.status(404).send('not found');
-    
+    res.status(404).send('not found');    
 });
 
     
