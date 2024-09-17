@@ -4,7 +4,8 @@
   "description": "Back-End for MC Makerspace Website",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "server": "npx nodemon index.js"
   },
   "author": "",
   "license": "ISC",
