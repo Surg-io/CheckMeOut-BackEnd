@@ -1,8 +1,9 @@
 import express, { Express, Request, Response } from "express";
 import fileo from 'fs';
-import {GetUserId, GetUserData} from './sql/database';
+import {GetUserId, GetUserData} from './sql/database.js'; // tsc creates error, doesnt include .js extension
 
-const port: Number = Number(process.env.PORT);
+
+const port: Number = Number(process.env.PORT) || 3000; // remove port later in dev
 const app: Express = express();
 app.use(express.static('public'));
 let start = 1;
