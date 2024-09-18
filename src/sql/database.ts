@@ -1,4 +1,4 @@
-import mysql, { QueryResult } from 'mysql2';
+import mysql from 'mysql2';
 import dotenv from 'dotenv';
 import { query } from 'express';
 dotenv.config();
@@ -16,11 +16,11 @@ export async function GetUserData () {
     return rows;
 }
 
-const data = await GetUserData();
-console.log('DATA:  ',data);
+// const data = await GetUserData();
+// console.log('DATA:  ',data);
 
 
-export async function GetUserId (first_name, last_name, major, student_id) { // get all student info for using in the frontend when needed??
+export async function GetUserId (first_name: string, last_name: string, major: string, student_id: string) { // get all student info for using in the frontend when needed??
     try { // might handle cases for matching first name, ask is this you? or not etc..
     const [user_rows] = await pool
                               .query(`SELECT id 

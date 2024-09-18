@@ -9,7 +9,8 @@
     "prestart": "npm run build",
     "start": "node src/index.js",
     "preserver": "npm run build",
-    "server": "concurrently \"npx tsc -w\"  \"nodemon src/index.js\""
+    "compile": "tsc --pretty -w",
+    "server": "concurrently \"npx tsc -w\"  \"nodemon build/index.js\""
   },
   "author": "",
   "license": "ISC",

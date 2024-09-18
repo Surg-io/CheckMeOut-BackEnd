@@ -1,6 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import fileo from 'fs';
-import {GetUserId, GetUserData} from './public/sql/database.js';
+import {GetUserId, GetUserData} from './sql/database';
 
 const port: Number = Number(process.env.PORT);
 const app: Express = express();
