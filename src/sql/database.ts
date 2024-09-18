@@ -1,6 +1,5 @@
-import mysql from 'mysql2';
+import mysql, { QueryResult } from 'mysql2';
 import dotenv from 'dotenv';
-// import { query } from 'express';
 dotenv.config();
 
 const pool = mysql.createPool({
@@ -11,7 +10,7 @@ const pool = mysql.createPool({
 }).promise();
 
 
-export async function GetUserData () {
+export async function GetUserData (): Promise<QueryResult> {
     const [rows] = await pool.query("SELECT * FROM student");
     return rows;
 }

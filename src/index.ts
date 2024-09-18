@@ -1,6 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import fileo from 'fs';
-import {GetUserId, GetUserData} from './sql/database.js'; // tsc creates error, doesnt include .js extension
+import {GetUserId, GetUserData} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 
 
 const port: Number = Number(process.env.PORT) || 3000; // remove port later in dev
