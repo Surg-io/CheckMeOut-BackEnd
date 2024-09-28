@@ -5,18 +5,6 @@ import mysql from "mysql2";
 
 // ~MYSQL Database Connection~
 
-//Sets new variables from our variables within our env file containing MYSQL database(db) information
-let dbhost: any = process.env.MYSQL_HOST; 
-let dbuser: any = process.env.MYSQL_USER;
-let dbpassword: any = process.env.MYSQL_PASSWORD;
-let db: any = process.env.MYSQL_DATABASE;
-
-const pool = mysql.createPool({ //Initializes a MYSQL obj to connect to the db via pooling; so we don't have to reconnect to the db after every query. 
-    host: dbhost,
-    user: dbuser,
-    password: dbpassword,
-    database: db,
-});
 
 /*connection.connect(error => { //Function that actually connects to the db. Throws Error to Express if there is an error in connecting
     if (error)
@@ -54,17 +42,17 @@ app.get("/", (req: Request, res: Response): void => {
     // res.render('index');
 });
 
-/* Promise Based Post Request
+//Promise Based Post Request
 //When frontend users click register to register to the system. This 
+
 app.post("/registeruser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. 
     console.log(req.body);
-    const response = await RegNewUser(db,req.body.ID,req.body.FN,req.body.LN,req.body.Email,req.body.Major); //Accessing said resource, so we need to wait for a responses
+    const response = await RegNewUser("studentuser",req.body.ID,req.body.FN,req.body.LN,req.body.Email,req.body.Major); //Accessing said resource, so we need to wait for a responses
     res.send(response);
 });
-*/ 
 
 //Non-Promise Based Post Request
-app.post("/registeruser",  (req: Request, res: Response): void => { //This function is async as we have a function inside that is accessing a resource. 
+/*app.post("/registeruser",  (req: Request, res: Response): void => { //This function is async as we have a function inside that is accessing a resource. 
     console.log(req.body);
     console.log(`${req.body.Email}`)
 
@@ -78,7 +66,7 @@ app.post("/registeruser",  (req: Request, res: Response): void => { //This funct
         }); 
     
        // res.send("Post Request Successful");
-});
+});*/
 
 
 
