@@ -9,6 +9,17 @@ const pool = mysql.createPool({
     database: process.env.MYSQL_DATABASE
 }).promise();
 
+export async function RegNewUser (db:string,ID:string,FN:string,LN:string,Email:string,Major:string) { //This function needs to be await as we are accessing a database resource
+    try {
+        let response =  await pool.query(`INSERT INTO ${db} (STUDENTID,FN,LN,EMAIL,MAJOR) VALUES (${ID},${FN},${LN},${Email},${Major})`); //.query returns a "query packet", which you assign to arrays. 
+        console.log(response + ": Registered New User");
+    }
+    catch(err){
+        console.log("Error in registering new user: " + err);
+    }  
+}
+
+
 
 export async function GetUserData (): Promise<QueryResult> {
     const [rows] = await pool.query("SELECT * FROM student");
