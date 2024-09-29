@@ -18,7 +18,7 @@ while True:
         frequency = 900
         duration = 500
         winsound.Beep(frequency,duration)
-        sleep(10)
+        sleep(5)
     cv2.imshow("QRCODEscanner", img)
     if cv2.waitKey(1) == ord("q"):
         break
