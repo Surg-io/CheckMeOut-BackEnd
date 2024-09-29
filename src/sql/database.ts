@@ -20,6 +20,16 @@ export async function RegNewUser (table:string,ID:string,FN:string,LN:string,Ema
     }  
 }
 
+export async function NewScan(table:string, ID:string,Time:string,Date:string)
+{
+    try {
+        let response =  await pool.query(`INSERT INTO ${table} (STUDENTID,CNTIME,CNDATE) VALUES (${ID},"${Time}","${Date}")`); //.query returns a "query packet", which you assign to arrays. 
+        console.log(response + ": New Scan Detected");
+    }
+    catch(err){
+        console.log("Error in entering new scan: " + err);
+    }  
+}
 
 
 export async function GetUserData (): Promise<QueryResult> {

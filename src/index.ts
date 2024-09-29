@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from "express";
-import {GetUserId, GetUserData, RegNewUser} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {GetUserId, GetUserData, RegNewUser,NewScan} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
+import { time } from "console";
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
 
@@ -51,12 +52,17 @@ app.post("/registeruser", async (req: Request, res: Response): Promise<void> => 
 
 //*Timestamping requests for CheckIn
 
-app.post("/checkin", async (req:Request,res:Response): Promise<void> => 
+app.post("/scan", async (req:Request,res:Response): Promise<void> => 
 {
-    console.log(req.body);
-    const currentDate = new Date();
-    const timestamp = currentDate.toString();
-    console.log(timestamp);
+    //console.log(`${Year}-${Month}-${Day}`); //For SQL 
+    //console.log(timestamptime); //For SQL
+    //console.log(req.body);
+
+    const currentDate = new Date(); //Timestamps when the request comes in, or whenever a code is scanned
+    const [Month, Day, Year] = currentDate.toLocaleDateString().split("/"); //Parses the Date from the timestamp obj
+    const time:string = currentDate.toLocaleTimeString("en-GB").toString();//Taken in PST. Gets the time
+    const response = await NewScan("StudentCheckIns",req.body.ID,time,`${Year}-${Month}-${Day}`); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
+    res.send("Scan Executed");
 });
 
 
