@@ -1,23 +1,8 @@
 import express, { Express, Request, Response } from "express";
 import {GetUserId, GetUserData, RegNewUser} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
-import mysql from "mysql2";
-
-// ~MYSQL Database Connection~
-
-
-/*connection.connect(error => { //Function that actually connects to the db. Throws Error to Express if there is an error in connecting
-    if (error)
-    {
-        console.log(`Connection to SQL server ${process.env.MYSQL_DATABASE} was unsuccessful`);
-        throw error;
-    }
-    else
-    {
-        console.log("Connection to SQL Database is successful");
-    }
-});
-*/
+//import { timeStamp } from "console";
+//var time = require("express-timestamp");
 
 // ~Express Server Initialization/Method Handling~
 
@@ -27,24 +12,20 @@ const app: Express = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use("/registeruser",(req, res, next) => { //Function will configure the CORS policy for this API
-    res.setHeader("Access-Control-Allow-Origin", "*"); //Allows Requests from every Origin(Frontend)
+    res.setHeader("Access-Control-Allow-Origin", `*`); //Allows Requests from every Origin(Frontend)
     res.setHeader("Access-Control-Allow-Methods", "POST, GET, PUT"); //Allows these methods from said Origin
     res.setHeader("Access-Control-Allow-Headers", "Content-Type"); //Allows the modification of these headers to use in our API
     next();
-  })
+});
 
-
-//app.use(express.static('public')); Don't know why we need this
-//let start = 1; Don't know why we need this
 app.get("/", (req: Request, res: Response): void => {
     console.log("Recieved request");
     res.send("Get Method");
-    // res.render('index');
 });
 
+//*Registering Users
 //Promise Based Post Request
 //When frontend users click register to register to the system. This 
-
 app.post("/registeruser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. 
     console.log(req.body);
     const response = await RegNewUser("studentuser",req.body.ID,req.body.FN,req.body.LN,req.body.Email,req.body.Major); //Accessing said resource, so we need to wait for a responses
@@ -68,7 +49,15 @@ app.post("/registeruser", async (req: Request, res: Response): Promise<void> => 
        // res.send("Post Request Successful");
 });*/
 
+//*Timestamping requests for CheckIn
 
+app.post("/checkin", async (req:Request,res:Response): Promise<void> => 
+{
+    console.log(req.body);
+    const currentDate = new Date();
+    const timestamp = currentDate.toString();
+    console.log(timestamp);
+});
 
 
 app.listen(port, (): void => {
@@ -76,8 +65,8 @@ app.listen(port, (): void => {
 });
 
 
-
-
+//In case we do account based(Put Statement)
+/*
 // register route, does it need any info? or will use the request body
 app.put("/", async (req: Request, res: Response): Promise<void> => {
 
@@ -104,6 +93,6 @@ app.put("/", async (req: Request, res: Response): Promise<void> => {
     res.status(400).send('bad request');
     res.status(404).send('not found');    
 });
-
+*/
     
 

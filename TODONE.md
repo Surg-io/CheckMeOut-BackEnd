@@ -4,3 +4,4 @@
 
 # express
 - setup one route, to try for the register form. 
+- need to setup mysql with the route(Done)

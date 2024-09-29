@@ -2,6 +2,7 @@ import mysql, { QueryResult } from 'mysql2';
 import dotenv from 'dotenv';
 dotenv.config();
 
+// ~MYSQL Database Connection~
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
