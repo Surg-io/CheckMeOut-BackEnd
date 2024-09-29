@@ -13,7 +13,7 @@ while True:
     data, bbox, _ = detector.detectAndDecode(img)
     if data:
         print(data)
-        response = requests.post("http://localhost:8000/checkin", json={"id": data})
+        response = requests.post("http://localhost:8000/checkin", json={"ID": data})
         print(response)
         frequency = 900
         duration = 500
