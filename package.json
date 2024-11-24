@@ -7,11 +7,12 @@
   "scripts": {
     "build": "npx tsc",
     "prestart": "npm run build",
-    "start": "node src/index.js",
+    "start": "node build/index.js",
     "preserver": "npm run build",
     "compile": "tsc --pretty -w",
-    "server": "concurrently \"npx tsc --pretty -w\"  \"nodemon build/index.js\""
-  },
+    "server": "concurrently \"npm run compile\" \"nodemon build/index.js\""
+  }
+,
   "author": "",
   "license": "ISC",
   "dependencies": {

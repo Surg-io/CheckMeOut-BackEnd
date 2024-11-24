@@ -12,10 +12,10 @@ const app: Express = express();
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }))
-app.use("/registeruser",(req, res, next) => { //Function will configure the CORS policy for this API
-    res.setHeader("Access-Control-Allow-Origin", `*`); //Allows Requests from every Origin(Frontend)
+app.use("/registeruser",(req, res, next) => { //Function will configure the CORS policy for this API. See CORS policy
+    res.setHeader("Access-Control-Allow-Origin", `*`); //Allows Requests from every Origin(Any IP /Frontend)
     res.setHeader("Access-Control-Allow-Methods", "POST, GET, PUT"); //Allows these methods from said Origin
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type"); //Allows the modification of these headers to use in our API
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type"); //Allows the modification of these headers to use in our API.Json specifically is a content header
     next();
 });
 
@@ -24,6 +24,7 @@ app.get("/", (req: Request, res: Response): void => {
     res.send("Get Method");
 });
 
+//------------------Post Requests-------------------
 //*Registering Users
 //Promise Based Post Request
 //When frontend users click register to register to the system. This 
@@ -66,12 +67,21 @@ app.post("/scan", async (req:Request,res:Response): Promise<void> =>
 });
 
 
+app.get("/returndata", async (req:Request,res:Response): Promise<void> =>
+{
+    
+    res.send("Data Returned");
+});
+
+
+
+
 app.listen(port, (): void => {
     console.log(`listening on port ${port}`);
 });
 
 
-//In case we do account based(Put Statement)
+//In case we do account based...?(Put Statement)
 /*
 // register route, does it need any info? or will use the request body
 app.put("/", async (req: Request, res: Response): Promise<void> => {
