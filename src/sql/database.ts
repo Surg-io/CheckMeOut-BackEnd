@@ -2,7 +2,7 @@ import mysql, { QueryResult } from 'mysql2';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ~MYSQL Database Connection~
+// ~MYSQL Databasse Connection~
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
@@ -45,6 +45,27 @@ export async function GetUserData (): Promise<QueryResult> {
     return rows;
 }
 
+export async function ReturnDates (table:string, fullDate:string)
+{
+    try{
+        const [rows] = await pool.query(`SELECT DISTINCT deviceID,deviceName,starttime,endtime FROM ${table} where starttime BETWEEN now() AND Date(?)`,[fullDate]) //Get Which Devices have reservations
+        return rows;
+    }
+    catch (err) {
+        console.log("Error in Returning reserved dates: " + err)
+    }
+}
+
+export async function ReturnDevices (table:string, fullDate:string)
+{
+    try{
+        const [rows] = await pool.query(`SELECT deviceName,deviceID,starttime,endtime FROM ${table} where starttime BETWEEN Date("2024-12-23T08:00:00.000Z") AND Date(?)`,[fullDate]) //Get Which Devices have reservations
+        return rows;
+    }
+    catch (err) {
+        console.log("Error in Returning reserved dates: " + err)
+    }
+}
 
 
 
