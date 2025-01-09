@@ -41,26 +41,27 @@ app.post("/registeruser", async (req: Request, res: Response): Promise<void> => 
 
 //*Returns the reservations made for a certain date
 app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
-    let qreserved: any = await ReturnDevices("reservations",req.body.fullDate); //Get all the data;
-    let uniqueids = new Set<number>();
+    let qreserved: any = await ReturnDevices("reservations",req.body.fullDate); //Get all the data, in order of Device ID;
     let devices = [];
+    let reservedtw = [];
+    let previd = {"deviceName": "Dummy", "deviceID" : -1}; //For first check
     for(let x of qreserved) //Go through Data
     {
-        if(!uniqueids.has(x.deviceID)) //If a device has not been added to devices..
+        if(previd.deviceID == x.deviceID || previd.deviceID == -1)//Add the times and status
         {
-            uniqueids.add(x.deviceID); //Add the device
-            let reservedtw : Object = [{"startTime": Date()}]
-            devices.push({"deviceID": `${x.deviceID}`, "deviceName":`${x.deviceName}`, "reservedTimeWindows": reservedtw})
+            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-GB").toString(),"endTime":x.endtime.toLocaleTimeString("en-GB").toString(), "resstatus":x.resstatus});
         }
-        else //Adjust the Reserved Time Window Periods
+        else //Upon encountering a new device, append the previous device with array of times, and start a new time array for the current device
         {
-
+            devices.push({"deviceID": `${previd.deviceID}`, "deviceName":`${previd.deviceName}`, "timeWindows": JSON.parse(JSON.stringify(reservedtw))}); //There is only shallow copying in JS, so we need to deep copy
+            reservedtw.length = 0;
+            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-GB").toString(),"endTime":x.endtime.toLocaleTimeString("en-GB").toString(), "resstatus":x.resstatus});
         }
+        console.log(reservedtw.length)
+        previd = x;
     }
-    console.log(uniqueids);
-   
-
-    let response = {"SelectedDate": `${req.body.year}- ${req.body.month} - ${req.body.day}`};
+    devices.push({"deviceID": `${previd.deviceID}`, "deviceName":`${previd.deviceName}`, "TimeWindows": reservedtw}); //After the last entry is read, append the last entry along with its array. This doesn't need deep copy as its the most recent one
+    let response = {"SelectedDate": `${req.body.year}-${req.body.month}-${req.body.day}`, "Devices": devices};
     res.send(response)
 });
 //Non-Promise Based Post Request

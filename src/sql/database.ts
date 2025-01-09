@@ -59,7 +59,7 @@ export async function ReturnDates (table:string, fullDate:string)
 export async function ReturnDevices (table:string, fullDate:string)
 {
     try{
-        const [rows] = await pool.query(`SELECT deviceName,deviceID,starttime,endtime FROM ${table} where starttime BETWEEN Date("2024-12-23T08:00:00.000Z") AND Date(?)`,[fullDate]) //Get Which Devices have reservations
+        const [rows] = await pool.query(`SELECT deviceName,deviceID,starttime,endtime,resstatus FROM ${table} where starttime BETWEEN now() AND Date(?) ORDER BY deviceID`,[fullDate]) //Get Which Devices have reservations
         return rows;
     }
     catch (err) {
