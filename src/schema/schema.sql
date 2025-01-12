@@ -1,3 +1,4 @@
+-- We don't currently use anything in this file -- 
 CREATE DATABASE student_info;
 USE student_info;
 
