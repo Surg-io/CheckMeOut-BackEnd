@@ -63,7 +63,22 @@ export async function ReturnDevices (table:string, fullDate:string)
         return rows;
     }
     catch (err) {
-        console.log("Error in Returning reserved dates: " + err)
+        console.log("Error in Returning Reserved Devices: " + err)
+    }
+}
+
+export async function RequestReservation(table:string, device:string, ID:string, time:Date)
+{
+    try{
+        let sstime = new Date(time); 
+        let timeelapsed = 2; //Number of Hours a reservation slot is...
+        //For below, Student ID is currently a placeholder...make sure we adjust before rollout
+        //await pool.query(`INSERT INTO ${table} (studentID, deviceID, deviceName, starttime, endtime, resstatus) VALUES ('S67890', ?, ?, ?, ?, 'Reserved');`,[ID,device,sstime,new Date(sstime.setHours(sstime.getHours() + timeelapsed))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
+        return [1, "NA"];
+    }
+    catch (err) {
+        console.log("Error in making Reservation: " + err);
+        return [0, err];
     }
 }
 

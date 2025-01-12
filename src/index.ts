@@ -1,11 +1,13 @@
-import express, { Express, Request, Response } from "express";
-import {ReturnDates, RegNewUser,NewScan,ReturnDevices} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import express, { Express, Request, response, Response } from "express";
+import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
 import { time } from "console";
 import request from 'supertest';
  
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
+
+//* Represents the start of an endpoint
 
 // ~Express Server Initialization/Method Handling~
 
@@ -39,10 +41,40 @@ app.post("/registeruser", async (req: Request, res: Response): Promise<void> => 
     res.send(response);
 });
 
+//*Making a reservation for a device
+app.post("/reserve", async (req: Request, res: Response):Promise<void> => 
+{// We write the code with the intention that times are blocked between devices(2 Hour Increments, 3 Hour, etc.)
+    let reservations = [];
+    let status;
+    let reason;
+    for(let x of req.body) //For every reservation that is sent to us from frontend...
+    {
+        let response = await RequestReservation("reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.
+        if(response[0]) //If we don't get an error...
+        {
+            status = "Success";//...then we have successfully logged the reservations. The status will reflect so.
+            reason = response[1];
+        }
+        else
+        {
+           status = "Failed";//...else, we failed at logging in the reservation. The status will reflect so.
+           reason = response[1];
+        }
+        reservations.push({"deviceId": x.deviceId, //Add the information of the reservation and its status of completion to an array...
+            "device": x.device,
+            "time": x.time,
+            "status": status,
+            "reason": reason});
+
+    }
+    console.log(reservations);
+    res.send({"Reservations" : reservations}); //...and the array gets send back to frontend.
+});
+
 //*Returns the reservations made for a certain date
 app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
     let qreserved: any = await ReturnDevices("reservations",req.body.fullDate); //Get all the data, in order of Device ID;
-    let devices = [];
+    let devices = []; 
     let reservedtw = [];
     let previd = {"deviceName": "Dummy", "deviceID" : -1}; //For first check
     for(let x of qreserved) //Go through Data
@@ -64,6 +96,9 @@ app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
     let response = {"SelectedDate": `${req.body.year}-${req.body.month}-${req.body.day}`, "Devices": devices};
     res.send(response)
 });
+
+
+
 //Non-Promise Based Post Request
 /*app.post("/registeruser",  (req: Request, res: Response): void => { //This function is async as we have a function inside that is accessing a resource. 
     console.log(req.body);
