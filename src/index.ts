@@ -45,8 +45,8 @@ app.post("/registeruser", async (req: Request, res: Response): Promise<void> => 
 app.post("/reserve", async (req: Request, res: Response):Promise<void> => 
 {// We write the code with the intention that times are blocked between devices(2 Hour Increments, 3 Hour, etc.)
     let reservations = [];
-    let status;
-    let reason;
+    let status:string;
+    let reason:string | number;
     for(let x of req.body) //For every reservation that is sent to us from frontend...
     {
         let response = await RequestReservation("reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.

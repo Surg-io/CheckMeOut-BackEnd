@@ -71,14 +71,14 @@ export async function RequestReservation(table:string, device:string, ID:string,
 {
     try{
         let sstime = new Date(time); 
-        let timeelapsed = 2; //Number of Hours a reservation slot is...
+        let timeelapsed = .5; //Number of Hours a reservation slot is...
         //For below, Student ID is currently a placeholder...make sure we adjust before rollout
         //await pool.query(`INSERT INTO ${table} (studentID, deviceID, deviceName, starttime, endtime, resstatus) VALUES ('S67890', ?, ?, ?, ?, 'Reserved');`,[ID,device,sstime,new Date(sstime.setHours(sstime.getHours() + timeelapsed))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
         return [1, "NA"];
     }
     catch (err) {
-        console.log("Error in making Reservation: " + err);
-        return [0, err];
+        const error = err as Error; //This typecasts the err into an Error type, so we can now process it line by line.
+        return [0, error.message.split('\n')[0]];
     }
 }
 
