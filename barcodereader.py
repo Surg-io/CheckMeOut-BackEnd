@@ -14,12 +14,12 @@ while True:
     data, bbox, _ = detector.detectAndDecode(img)
     if data:
         print(data)
-        response = requests.post("http://localhost:8000/checkin", json={"id": data})
+        response = requests.post("http://localhost:8000/scan", json={"ID": data})
         print(response)
         frequency = 900
         duration = 500
         winsound.Beep(frequency,duration)
-        sleep(10)
+        sleep(5)
     cv2.imshow("QRCODEscanner", img)
     if cv2.waitKey(1) == ord("q"):
         break
