@@ -37,6 +37,21 @@ export async function NewScan(table:string, ID:string,Time:string,Date:string)
     }  
 }
 
+export async function RequestReservation(table:string, device:string, ID:string, time:Date)
+{
+    try{
+        let sstime = new Date(time); 
+        let timeelapsed = .5; //Number of Hours a reservation slot is...
+        //For below, Student ID is currently a placeholder...make sure we adjust before rollout
+        await pool.query(`INSERT INTO ${table} (studentID, deviceID, deviceName, starttime, endtime, resstatus) VALUES ('67890', ?, ?, ?, ?, 'Reserved');`,[ID,device,sstime,new Date(sstime.setHours(sstime.getHours() + timeelapsed))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
+        return [1, "NA"];
+    }
+    catch (err) {
+        const error = err as Error; //This typecasts the err into an Error type, so we can now process it line by line.
+        return [0, error.message.split('\n')[0]];
+    }
+}
+
 //----------------Select Queries----------------------
 
 
@@ -67,22 +82,17 @@ export async function ReturnDevices (table:string, fullDate:string)
     }
 }
 
-export async function RequestReservation(table:string, device:string, ID:string, time:Date)
+export async function checkinhistory(query:string)
 {
     try{
-        let sstime = new Date(time); 
-        let timeelapsed = .5; //Number of Hours a reservation slot is...
-        //For below, Student ID is currently a placeholder...make sure we adjust before rollout
-        //await pool.query(`INSERT INTO ${table} (studentID, deviceID, deviceName, starttime, endtime, resstatus) VALUES ('S67890', ?, ?, ?, ?, 'Reserved');`,[ID,device,sstime,new Date(sstime.setHours(sstime.getHours() + timeelapsed))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
-        return [1, "NA"];
+        const [rows] = await pool.query(query) //Get the reservations based on the query
+        return rows;
     }
     catch (err) {
-        const error = err as Error; //This typecasts the err into an Error type, so we can now process it line by line.
-        return [0, error.message.split('\n')[0]];
+        console.log("Error in Returning Query of Check Ins: " + err)
+        return err;
     }
 }
-
-
 
 
 /*We are not using this rn

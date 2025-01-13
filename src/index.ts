@@ -1,5 +1,5 @@
 import express, { Express, Request, response, Response } from "express";
-import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation,checkinhistory} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
 import { time } from "console";
 import request from 'supertest';
@@ -47,6 +47,8 @@ app.post("/reserve", async (req: Request, res: Response):Promise<void> =>
     let reservations = [];
     let status:string;
     let reason:string | number;
+    let index: number = 0;
+    let badreservations = [];
     for(let x of req.body) //For every reservation that is sent to us from frontend...
     {
         let response = await RequestReservation("reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.
@@ -59,16 +61,17 @@ app.post("/reserve", async (req: Request, res: Response):Promise<void> =>
         {
            status = "Failed";//...else, we failed at logging in the reservation. The status will reflect so.
            reason = response[1];
+           badreservations.push(index);
         }
         reservations.push({"deviceId": x.deviceId, //Add the information of the reservation and its status of completion to an array...
             "device": x.device,
             "time": x.time,
             "status": status,
             "reason": reason});
-
+        index += 1;
     }
     console.log(reservations);
-    res.send({"Reservations" : reservations}); //...and the array gets send back to frontend.
+    res.send({"Reservations" : reservations,  "ErrorIndicies": badreservations}); //...and the array gets send back to frontend.
 });
 
 //*Returns the reservations made for a certain date
@@ -97,12 +100,24 @@ app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
     res.send(response)
 });
 
+//*Return the CheckIn's
+app.post("/checkinhistory", async (req:Request, res: Response): Promise<void> => //We will build the query based on conditionals
+{
 
+    let query = `select * from checkins where checkin between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
+    if(req.body.studentID)
+    {
+        query += ` and studentId = ${req.body.studentID}`
+    }
+    query += ' Order by checkin';
+    console.log(query);
+    let history = await checkinhistory(query); res.send(history);
+    //res.sendStatus(200);
 
+});
 //Non-Promise Based Post Request
 /*app.post("/registeruser",  (req: Request, res: Response): void => { //This function is async as we have a function inside that is accessing a resource. 
-    console.log(req.body);
-    console.log(`${req.body.Email}`)
+    console.log(req.body);    console.log(`${req.body.Email}`)
 
     pool.query(`INSERT INTO studentuser (STUDENTID,FN,LN,EMAIL,MAJOR) VALUES (123456885,"sergio","man","pok@gmail.com","EFG")`,
         (err) => {if (err)
