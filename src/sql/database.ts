@@ -11,6 +11,22 @@ const pool = mysql.createPool({  //You can go without the .promise(). If you ini
 }).promise();
 
 
+//---------------Table Queries------------------------
+
+export async function CreateTables()
+{
+    try {
+        let response =  await pool.query("CREATE TABLE `Reservations` (`reservation_id` int NOT NULL AUTO_INCREMENT,`studentID` varchar(20) DEFAULT NULL,`deviceID` int DEFAULT NULL,`deviceName` varchar(20) DEFAULT NULL,`starttime` datetime DEFAULT NULL,`endtime` datetime DEFAULT NULL,`resstatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`reservation_id`) UNIQUE KEY (`deviceID`,`starttime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE `ScanHistory` (`SCANID` int NOT NULL AUTO_INCREMENT,`STUDENTID` int NOT NULL,`CNDATE` date NOT NULL,`CNTIME` time NOT NULL,PRIMARY KEY (`SCANID`),KEY `STUDENTID` (`STUDENTID`),FOREIGN KEY (`STUDENTID`) REFERENCES `studentuser` (`STUDENTID`))");
+        await pool.query("CREATE TABLE `Students` (`STUDENTID` int NOT NULL,`FN` varchar(25) NOT NULL,`LN` varchar(40) NOT NULL,`EMAIL` varchar(100) NOT NULL,`MAJOR` varchar(4) NOT NULL,PRIMARY KEY (`STUDENTID`),UNIQUE KEY `STUDENTID` (`STUDENTID`),UNIQUE KEY `EMAIL` (`EMAIL`))");
+        await pool.query("CREATE TABLE `Scans` (studentID varchar (20) not null,starttime datetime)");
+        console.log(response + ": Registered New User");
+    }
+    catch(err){
+        console.log("Error in creating tables: " + err);
+    }  
+}
+
 
 //--------------Insert Queries------------------------
 
@@ -26,10 +42,10 @@ export async function RegNewUser (table:string,ID:string,FN:string,LN:string,Ema
     }  
 }
 //Query For Putting in Scans
-export async function NewScan(table:string, ID:string,Time:string,Date:string)
+export async function NewScan(table:string, ID:string, Datetime:string)
 {
     try {
-        let response =  await pool.query(`INSERT INTO ${table} (STUDENTID,CNTIME,CNDATE) VALUES (?,?,?)` , [ID,Time,Date]); //.query returns a "query packet", which you assign to arrays. 
+        let response =  await pool.query(`INSERT INTO ${table} (STUDENTID, starttime) VALUES (?,?,?)` , [ID,Datetime]); //.query returns a "query packet", which you assign to arrays. 
         console.log(response + ": New Scan Detected");
     }
     catch(err){

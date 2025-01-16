@@ -1,5 +1,5 @@
 import express, { Express, Request, response, Response } from "express";
-import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation,checkinhistory} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation,checkinhistory, CreateTables} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
 import { time } from "console";
 import request from 'supertest';
@@ -25,10 +25,18 @@ app.use("/registeruser",(req, res, next) => { //Function will configure the CORS
 
 //------------------Get Requests-------------------
 
+
 app.get("/", (req: Request, res: Response): void => {
     console.log("Recieved request");
     res.send("Get Method");
 });
+
+//*Following few Queries initialize a mysql table for testing..
+app.get("/inittables", (req: Request, res: Response): void => {
+    CreateTables();
+    res.send("Get Method");
+});
+
 
 
 //------------------Post Requests-------------------
@@ -37,7 +45,7 @@ app.get("/", (req: Request, res: Response): void => {
 //When frontend users click register to register to the system. This 
 app.post("/registeruser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
-    const response = await RegNewUser("studentuser",req.body.ID,req.body.FN,req.body.LN,req.body.Email,req.body.Major); //Accessing said resource, so we need to wait for a responses
+    const response = await RegNewUser(`Students`,req.body.ID,req.body.FN,req.body.LN,req.body.Email,req.body.Major); //Accessing said resource, so we need to wait for a responses
     res.send(response);
 });
 
@@ -51,7 +59,7 @@ app.post("/reserve", async (req: Request, res: Response):Promise<void> =>
     let badreservations = [];
     for(let x of req.body) //For every reservation that is sent to us from frontend...
     {
-        let response = await RequestReservation("reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.
+        let response = await RequestReservation("Reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.
         if(response[0]) //If we don't get an error...
         {
             status = "Success";//...then we have successfully logged the reservations. The status will reflect so.
@@ -76,7 +84,7 @@ app.post("/reserve", async (req: Request, res: Response):Promise<void> =>
 
 //*Returns the reservations made for a certain date
 app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
-    let qreserved: any = await ReturnDevices("reservations",req.body.fullDate); //Get all the data, in order of Device ID;
+    let qreserved: any = await ReturnDevices("Reservations",req.body.fullDate); //Get all the data, in order of Device ID;
     let devices = []; 
     let reservedtw = [];
     let previd = {"deviceName": "Dummy", "deviceID" : -1}; //For first check
@@ -101,10 +109,10 @@ app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
 });
 
 //*Return the CheckIn's
-app.post("/checkinhistory", async (req:Request, res: Response): Promise<void> => //We will build the query based on conditionals
+app.post("/scanhistory", async (req:Request, res: Response): Promise<void> => //We will build the query based on conditionals
 {
 
-    let query = `select * from checkins where checkin between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
+    let query = `select * from ScanHistory where checkin between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
     if(req.body.studentID)
     {
         query += ` and studentId = ${req.body.studentID}`
@@ -134,14 +142,8 @@ app.post("/checkinhistory", async (req:Request, res: Response): Promise<void> =>
 //*Timestamping requests for CheckIn
 app.post("/scan", async (req:Request,res:Response): Promise<void> => 
 {
-    //console.log(`${Year}-${Month}-${Day}`); //For SQL 
-    //console.log(timestamptime); //For SQL
-    //console.log(req.body);
-
-    const currentDate = new Date(); //Timestamps when the request comes in, or whenever a code is scanned
-    const [Month, Day, Year] = currentDate.toLocaleDateString().split("/"); //Parses the Date from the timestamp obj
-    const time:string = currentDate.toLocaleTimeString("en-GB").toString();//Taken in PST. Gets the time
-    const response = await NewScan("StudentCheckIns",req.body.ID,time,`${Year}-${Month}-${Day}`); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
+    const currentDate = new Date().toISOString(); //Timestamps when the request comes in, or whenever a code is scanned
+    const response = await NewScan("Scans",req.body.ID, currentDate); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
     res.send("Scan Executed");
 });
 
