@@ -16,11 +16,11 @@ const pool = mysql.createPool({  //You can go without the .promise(). If you ini
 export async function CreateTables()
 {
     try {
-        let response =  await pool.query("CREATE TABLE `Reservations` (`reservation_id` int NOT NULL AUTO_INCREMENT,`studentID` varchar(20) DEFAULT NULL,`deviceID` int DEFAULT NULL,`deviceName` varchar(20) DEFAULT NULL,`starttime` datetime DEFAULT NULL,`endtime` datetime DEFAULT NULL,`resstatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`reservation_id`) UNIQUE KEY (`deviceID`,`starttime`)) "); //.query returns a "query packet", which you assign to arrays. 
-        await pool.query("CREATE TABLE `ScanHistory` (`SCANID` int NOT NULL AUTO_INCREMENT,`STUDENTID` int NOT NULL,`CNDATE` date NOT NULL,`CNTIME` time NOT NULL,PRIMARY KEY (`SCANID`),KEY `STUDENTID` (`STUDENTID`),FOREIGN KEY (`STUDENTID`) REFERENCES `studentuser` (`STUDENTID`))");
-        await pool.query("CREATE TABLE `Students` (`STUDENTID` int NOT NULL,`FN` varchar(25) NOT NULL,`LN` varchar(40) NOT NULL,`EMAIL` varchar(100) NOT NULL,`MAJOR` varchar(4) NOT NULL,PRIMARY KEY (`STUDENTID`),UNIQUE KEY `STUDENTID` (`STUDENTID`),UNIQUE KEY `EMAIL` (`EMAIL`))");
-        await pool.query("CREATE TABLE `Scans` (studentID varchar (20) not null,starttime datetime)");
-        console.log(response + ": Registered New User");
+        let response =  await pool.query("CREATE TABLE `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL,FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
+        await pool.query("CREATE TABLE `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, PRIMARY KEY (`AccountID`),UNIQUE `EMAIL` (`EMAIL`))");
+        await pool.query("CREATE TABLE `ScanIn` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
+        console.log("Created Tables");
     }
     catch(err){
         console.log("Error in creating tables: " + err);
@@ -32,9 +32,9 @@ export async function CreateTables()
 
 
 //Query For Registering Users
-export async function RegNewUser (table:string,ID:string,FN:string,LN:string,Email:string,Major:string) { //This function needs to be await as we are accessing a database resource
+export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:Date,Email:string,Major:string,Password:string) { //This function needs to be await as we are accessing a database resource
     try {
-        let response =  await pool.query(`INSERT INTO ${table} (STUDENTID,FN,LN,EMAIL,MAJOR) VALUES (?,?,?,?,?)`, [ID,FN,LN,Email,Major]); //.query returns a "query packet", which you assign to arrays. 
+        let response =  await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password) VALUES (?,?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password]); //.query returns a "query packet", which you assign to arrays. 
         console.log(response + ": Registered New User");
     }
     catch(err){
@@ -45,6 +45,7 @@ export async function RegNewUser (table:string,ID:string,FN:string,LN:string,Ema
 export async function NewScan(table:string, ID:string, Datetime:string)
 {
     try {
+
         let response =  await pool.query(`INSERT INTO ${table} (STUDENTID, starttime) VALUES (?,?,?)` , [ID,Datetime]); //.query returns a "query packet", which you assign to arrays. 
         console.log(response + ": New Scan Detected");
     }

@@ -45,7 +45,8 @@ app.get("/inittables", (req: Request, res: Response): void => {
 //When frontend users click register to register to the system. This 
 app.post("/registeruser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
-    const response = await RegNewUser(`Students`,req.body.ID,req.body.FN,req.body.LN,req.body.Email,req.body.Major); //Accessing said resource, so we need to wait for a responses
+    let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toLocaleString().substring(2,8) + req.body.Password.substring(2,5);
+    const response = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,req.body.DOB,req.body.Email,req.body.Major,req.body.Password); //Accessing said resource, so we need to wait for a responses
     res.send(response);
 });
 
@@ -59,7 +60,7 @@ app.post("/reserve", async (req: Request, res: Response):Promise<void> =>
     let badreservations = [];
     for(let x of req.body) //For every reservation that is sent to us from frontend...
     {
-        let response = await RequestReservation("Reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.
+        let response = await RequestReservation("Reservations",x.device, x.DeviceID,x.time); //...try to add it to the reservations table.
         if(response[0]) //If we don't get an error...
         {
             status = "Success";//...then we have successfully logged the reservations. The status will reflect so.
@@ -71,7 +72,7 @@ app.post("/reserve", async (req: Request, res: Response):Promise<void> =>
            reason = response[1];
            badreservations.push(index);
         }
-        reservations.push({"deviceId": x.deviceId, //Add the information of the reservation and its status of completion to an array...
+        reservations.push({"DeviceID": x.DeviceID, //Add the information of the reservation and its status of completion to an array...
             "device": x.device,
             "time": x.time,
             "status": status,
@@ -87,23 +88,23 @@ app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
     let qreserved: any = await ReturnDevices("Reservations",req.body.fullDate); //Get all the data, in order of Device ID;
     let devices = []; 
     let reservedtw = [];
-    let previd = {"deviceName": "Dummy", "deviceID" : -1}; //For first check
+    let previd = {"DeviceName": "Dummy", "DeviceID" : -1}; //For first check
     for(let x of qreserved) //Go through Data
     {
-        if(previd.deviceID == x.deviceID || previd.deviceID == -1)//Add the times and status
+        if(previd.DeviceID == x.DeviceID || previd.DeviceID == -1)//Add the times and status
         {
-            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-GB").toString(),"endTime":x.endtime.toLocaleTimeString("en-GB").toString(), "resstatus":x.resstatus});
+            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-GB").toString(),"endTime":x.endtime.toLocaleTimeString("en-GB").toString(), "ResStatus":x.ResStatus});
         }
         else //Upon encountering a new device, append the previous device with array of times, and start a new time array for the current device
         {
-            devices.push({"deviceID": `${previd.deviceID}`, "deviceName":`${previd.deviceName}`, "timeWindows": JSON.parse(JSON.stringify(reservedtw))}); //There is only shallow copying in JS, so we need to deep copy
+            devices.push({"DeviceID": `${previd.DeviceID}`, "DeviceName":`${previd.DeviceName}`, "TimeWindows": JSON.parse(JSON.stringify(reservedtw))}); //There is only shallow copying in JS, so we need to deep copy
             reservedtw.length = 0;
-            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-GB").toString(),"endTime":x.endtime.toLocaleTimeString("en-GB").toString(), "resstatus":x.resstatus});
+            reservedtw.push({"StartTime": x.starttime.toLocaleTimeString("en-GB").toString(),"EndTime":x.endtime.toLocaleTimeString("en-GB").toString(), "ResStatus":x.ResStatus});
         }
         console.log(reservedtw.length)
         previd = x;
     }
-    devices.push({"deviceID": `${previd.deviceID}`, "deviceName":`${previd.deviceName}`, "TimeWindows": reservedtw}); //After the last entry is read, append the last entry along with its array. This doesn't need deep copy as its the most recent one
+    devices.push({"DeviceID": `${previd.DeviceID}`, "DeviceName":`${previd.DeviceName}`, "TimeWindows": reservedtw}); //After the last entry is read, append the last entry along with its array. This doesn't need deep copy as its the most recent one
     let response = {"SelectedDate": `${req.body.year}-${req.body.month}-${req.body.day}`, "Devices": devices};
     res.send(response)
 });
@@ -112,10 +113,10 @@ app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
 app.post("/scanhistory", async (req:Request, res: Response): Promise<void> => //We will build the query based on conditionals
 {
 
-    let query = `select * from ScanHistory where checkin between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
-    if(req.body.studentID)
+    let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
+    if(req.body.AccountID)
     {
-        query += ` and studentId = ${req.body.studentID}`
+        query += ` and AccountID = ${req.body.AccountID}`
     }
     query += ' Order by checkin';
     console.log(query);
@@ -127,7 +128,7 @@ app.post("/scanhistory", async (req:Request, res: Response): Promise<void> => //
 /*app.post("/registeruser",  (req: Request, res: Response): void => { //This function is async as we have a function inside that is accessing a resource. 
     console.log(req.body);    console.log(`${req.body.Email}`)
 
-    pool.query(`INSERT INTO studentuser (STUDENTID,FN,LN,EMAIL,MAJOR) VALUES (123456885,"sergio","man","pok@gmail.com","EFG")`,
+    pool.query(`INSERT INTO studentuser (AccountID,FN,LN,EMAIL,MAJOR) VALUES (123456885,"sergio","man","pok@gmail.com","EFG")`,
         (err) => {if (err)
         {
             return res.send(err);
@@ -143,7 +144,7 @@ app.post("/scanhistory", async (req:Request, res: Response): Promise<void> => //
 app.post("/scan", async (req:Request,res:Response): Promise<void> => 
 {
     const currentDate = new Date().toISOString(); //Timestamps when the request comes in, or whenever a code is scanned
-    const response = await NewScan("Scans",req.body.ID, currentDate); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
+    const response = await NewScan("ScanIn",req.body.ID, currentDate); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
     res.send("Scan Executed");
 });
 
