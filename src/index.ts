@@ -1,9 +1,10 @@
 import express, { Express, Request, response, Response } from "express";
 import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation,checkinhistory, CreateTables} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
+import {SanatizeInput} from "./Functions/Functions.js";
 import { time } from "console";
 import request from 'supertest';
- 
+import 'nodemailer';
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
 
@@ -41,17 +42,32 @@ app.get("/inittables", (req: Request, res: Response): void => {
 
 //------------------Post Requests-------------------
 //*Registering Users
-//Promise Based Post Request
-//When frontend users click register to register to the system. This 
-app.post("/registeruser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
+app.post("/RegisterUser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
-    let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toLocaleString().substring(2,8) + req.body.Password.substring(2,5);
-    const response = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,req.body.DOB,req.body.Email,req.body.Major,req.body.Password); //Accessing said resource, so we need to wait for a responses
-    res.send(response);
+    if (!(SanatizeInput(req.body.FN,'N') && SanatizeInput(req.body.LN,'N') && SanatizeInput(req.body.Email,'E') && SanatizeInput(req.body.Password, 'P')))
+    {
+        res.status(401).send(`Input doesn't match specified requirements...`);
+    }
+    else
+    {
+
+        let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
+        const response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID); //Accessing said resource, so we need to wait for a responses
+        if(response instanceof Error)
+        {
+            res.status(401).send(response.message);
+        }
+        else
+        {
+            SendEmail();
+            res.status(200).send(response);
+        }
+        
+    }
 });
 
 //*Making a reservation for a device
-app.post("/reserve", async (req: Request, res: Response):Promise<void> => 
+app.post("/Reserve", async (req: Request, res: Response):Promise<void> => 
 {// We write the code with the intention that times are blocked between devices(2 Hour Increments, 3 Hour, etc.)
     let reservations = [];
     let status:string;
@@ -84,7 +100,7 @@ app.post("/reserve", async (req: Request, res: Response):Promise<void> =>
 });
 
 //*Returns the reservations made for a certain date
-app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
+app.post("/Searchdate", async (req: Request,res: Response):Promise<void> => {
     let qreserved: any = await ReturnDevices("Reservations",req.body.fullDate); //Get all the data, in order of Device ID;
     let devices = []; 
     let reservedtw = [];
@@ -110,7 +126,7 @@ app.post("/searchdate", async (req: Request,res: Response):Promise<void> => {
 });
 
 //*Return the CheckIn's
-app.post("/scanhistory", async (req:Request, res: Response): Promise<void> => //We will build the query based on conditionals
+app.post("/ScanHistory", async (req:Request, res: Response): Promise<void> => //We will build the query based on conditionals
 {
 
     let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...

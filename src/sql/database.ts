@@ -16,10 +16,16 @@ const pool = mysql.createPool({  //You can go without the .promise(). If you ini
 export async function CreateTables()
 {
     try {
-        let response =  await pool.query("CREATE TABLE `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
-        await pool.query("CREATE TABLE `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL,FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
-        await pool.query("CREATE TABLE `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, PRIMARY KEY (`AccountID`),UNIQUE `EMAIL` (`EMAIL`))");
+        /*
+        await pool.query("DROP TABLE `Reservations`");
+        await pool.query("DROP TABLE `ScanHistory`");
+        await pool.query("DROP TABLE `Students`");
+        await pool.query("DROP TABLE `ScanIn`");*/
+        //For Testing Purposes only...Delete ^ When we actually deploy
+        await pool.query("CREATE TABLE `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `StudentID` int (9) NOT NULL, PRIMARY KEY (`AccountID`),UNIQUE `StudentID` (`StudentID`), UNIQUE `EMAIL` (`EMAIL`))");
         await pool.query("CREATE TABLE `ScanIn` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
+        await pool.query("CREATE TABLE `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL,FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
         console.log("Created Tables");
     }
     catch(err){
@@ -32,13 +38,15 @@ export async function CreateTables()
 
 
 //Query For Registering Users
-export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:Date,Email:string,Major:string,Password:string) { //This function needs to be await as we are accessing a database resource
+export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:string,Email:string,Major:string,Password:string,StudentID:string): Promise<any> { //This function needs to be await as we are accessing a database resource
+    let response;
     try {
-        let response =  await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password) VALUES (?,?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password]); //.query returns a "query packet", which you assign to arrays. 
-        console.log(response + ": Registered New User");
+        response =  await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,StudentID) VALUES (?,?,?,Date(?),?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,StudentID]); //.query returns a "query packet", which you assign to arrays. 
+        return response + ": Registered New User";
     }
     catch(err){
-        console.log("Error in registering new user: " + err);
+        response = Error("Error in registering new user: " + err);
+        return response;
     }  
 }
 //Query For Putting in Scans
