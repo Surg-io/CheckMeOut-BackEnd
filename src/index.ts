@@ -55,7 +55,7 @@ app.post("/RegisterUser", async (req: Request, res: Response): Promise<void> => 
         const response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID); //Accessing said resource, so we need to wait for a responses
         if(response instanceof Error)
         {
-            res.status(401).send(response.message);
+            res.status(401).send(response.message); //Sends the Error
         }
         else
         {
@@ -130,9 +130,9 @@ app.post("/ScanHistory", async (req:Request, res: Response): Promise<void> => //
 {
 
     let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
-    if(req.body.AccountID)
+    if(req.body.ID)
     {
-        query += ` and AccountID = ${req.body.AccountID}`
+        query += ` and ID = ${req.body.ID}`
     }
     query += ' Order by checkin';
     console.log(query);
