@@ -1,10 +1,12 @@
 import express, { Express, Request, response, Response } from "express";
 import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation,checkinhistory, CreateTables} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
-import {SanatizeInput} from "./Functions/Functions.js";
+import {SanatizeInput, SendEmail,SignToken, ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
 import request from 'supertest';
-import 'nodemailer';
+import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
+dotenv.config();
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
 
@@ -22,6 +24,21 @@ app.use("/registeruser",(req, res, next) => { //Function will configure the CORS
     res.setHeader("Access-Control-Allow-Methods", "POST, GET, PUT"); //Allows these methods from said Origin
     res.setHeader("Access-Control-Allow-Headers", "Content-Type"); //Allows the modification of these headers to use in our API.Json specifically is a content header
     next(); //Sends control to the next call back function for /registeruser
+});
+
+app.use(cookieParser());
+
+
+//--------------Validate Token---------------------
+app.use(function (req,res,next){
+    try{
+        ValidateToken(req.cookies.Token);
+        next();
+    }
+    catch(err)
+    {
+        res.status(401).send("Invalid Cookie: " + err);
+    }
 });
 
 //------------------Get Requests-------------------
@@ -44,6 +61,7 @@ app.get("/inittables", (req: Request, res: Response): void => {
 //*Registering Users
 app.post("/RegisterUser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
+    //console.log(SanatizeInput(req.body.FN,'N') , SanatizeInput(req.body.LN,'N') , SanatizeInput(req.body.Email,'E') ,SanatizeInput(req.body.Password, 'P'));
     if (!(SanatizeInput(req.body.FN,'N') && SanatizeInput(req.body.LN,'N') && SanatizeInput(req.body.Email,'E') && SanatizeInput(req.body.Password, 'P')))
     {
         res.status(401).send(`Input doesn't match specified requirements...`);
@@ -52,17 +70,25 @@ app.post("/RegisterUser", async (req: Request, res: Response): Promise<void> => 
     {
 
         let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
-        const response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID); //Accessing said resource, so we need to wait for a responses
+        let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID); //Accessing said resource, so we need to wait for a responses
         if(response instanceof Error)
         {
             res.status(401).send(response.message); //Sends the Error
         }
         else
         {
-            SendEmail();
-            res.status(200).send(response);
+            response = await SendEmail(req.body.FN, req.body.Email.toString());
+            if(response instanceof Error)
+            {
+                res.status(401).send(response.message); //Sends the Error
+            }
+            else
+            {
+                const token = SignToken(AccountID);
+                res.cookie("Token",token);
+                res.status(200).send(response);
+            }
         }
-        
     }
 });
 

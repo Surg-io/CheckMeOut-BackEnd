@@ -16,15 +16,15 @@ const pool = mysql.createPool({  //You can go without the .promise(). If you ini
 export async function CreateTables()
 {
     try {
-        /*
+        
         await pool.query("DROP TABLE `Reservations`");
         await pool.query("DROP TABLE `ScanHistory`");
+        await pool.query("DROP TABLE `ScanIn`");
         await pool.query("DROP TABLE `Students`");
-        await pool.query("DROP TABLE `ScanIn`");*/
         //For Testing Purposes only...Delete ^ When we actually deploy
         await pool.query("CREATE TABLE `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `StudentID` int (9) NOT NULL, PRIMARY KEY (`AccountID`),UNIQUE `StudentID` (`StudentID`), UNIQUE `EMAIL` (`EMAIL`))");
         await pool.query("CREATE TABLE `ScanIn` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
-        await pool.query("CREATE TABLE `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
         await pool.query("CREATE TABLE `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL,FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
         console.log("Created Tables");
     }
