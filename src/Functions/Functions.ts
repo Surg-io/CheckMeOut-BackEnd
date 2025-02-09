@@ -1,18 +1,33 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import express, { Express, Request, Response } from "express";
 import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
-
+import dotenv from 'dotenv';
+import { NextFunction } from "express";
+dotenv.config(); // Load environment variables from .env file
 //---------------Sign Token-------------------
-export async function SignToken(payload:string): Promise<any>
+export async function SignToken(Information:string): Promise<any> //All we need to do is create the token. The frontend should be sending it under the "Authorization" Header
 {
-   return jwt.sign({'AccountID': payload}, process.env.Secret ,{expiresIn: "7d"});
+    let payload : Object = { AccountID: Information};
+    const token = jwt.sign(payload, "Whopper" ,{expiresIn: "1d"}); //WE NEED TO SET THE SECRET IN .ENV, BUT ITS NOT WORKING RN...PLACEHOLDER VALUE
+    return token;
 }
 
-//---------------Cookie Validation-------------------
-export async function ValidateToken(token:string): Promise<void>
+//---------------Token Validation-------------------
+export async function ValidateToken(req:Request, res:Response, next:NextFunction)
 {
-    return jwt.verify(token, process.env.Secret);
+    const authHeader = req.get("Authorization"); //Get the value of the Authorization Header...
+    //const authHeader = req.headers["Authorization"];
+    const token = authHeader && authHeader.split(' ')[1]; // Format: "Authorization": "Bearer <token>". Token is gotten if it exists, hence logical and
+    if (!token) {
+      return res.status(401).send({ message: 'Access denied. No token provided.' });
+    }
+    try {
+      const payload = jwt.verify(token, "Whopper");  // Verify the token through using the Secret Word. Throw an error otherwise.
+      Object.assign(req.body, {"AccountID":payload}); // Attach the payload to req.user
+      next(); // Proceed to the next middleware or route handler
+    } catch (err) {
+      return res.status(403).send({ message: 'Invalid or expired token.' });
+    }
 }
 
 

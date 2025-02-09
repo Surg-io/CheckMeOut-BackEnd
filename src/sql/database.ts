@@ -110,7 +110,7 @@ export async function ReturnDevices (table:string, fullDate:string)
 export async function checkinhistory(query:string)
 {
     try{
-        const [rows] = await pool.query(query) //Get the reservations based on the query
+        const [rows] = await pool.query(query); //Get the reservations based on the query
         return rows;
     }
     catch (err) {
@@ -119,6 +119,16 @@ export async function checkinhistory(query:string)
     }
 }
 
+export async function RetreivePassword(Username:string)
+{
+    try{
+        const [rows] =  await pool.query(`SELECT AccountID, Password from Students WHERE EMAIL = ?`,[Username]);//Get the reservations based on the query
+        return rows;
+    }
+    catch (err) {
+        return Error("Error in Returning Query of Check Ins: " + err);
+    }
+}
 
 /*We are not using this rn
 export async function GetUserId (first_name: string, last_name: string, major: string, student_id: string) { // get all student info for using in the frontend when needed??

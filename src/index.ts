@@ -1,11 +1,13 @@
-import express, { Express, Request, response, Response } from "express";
-import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation,checkinhistory, CreateTables} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import express, { Express, Request, Response } from "express";
+import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
-import {SanatizeInput, SendEmail,SignToken, ValidateToken} from "./Functions/Functions.js";
+import {SanatizeInput, SendEmail,SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
 import request from 'supertest';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import { Query } from "mysql2/typings/mysql/lib/protocol/sequences/Query.js";
+import { QueryResult } from "mysql2";
 dotenv.config();
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
@@ -26,23 +28,11 @@ app.use("/registeruser",(req, res, next) => { //Function will configure the CORS
     next(); //Sends control to the next call back function for /registeruser
 });
 
-app.use(cookieParser());
-
-
-//--------------Validate Token---------------------
-app.use(function (req,res,next){
-    try{
-        ValidateToken(req.cookies.Token);
-        next();
-    }
-    catch(err)
-    {
-        res.status(401).send("Invalid Cookie: " + err);
-    }
+//----------------Initialization for Testing------------------
+app.get("/env", (req: Request, res: Response): void => {
+    console.log('Secret from .env:', process.env.Secret);
+    res.send("Get Env Method");
 });
-
-//------------------Get Requests-------------------
-
 
 app.get("/", (req: Request, res: Response): void => {
     console.log("Recieved request");
@@ -54,10 +44,41 @@ app.get("/inittables", (req: Request, res: Response): void => {
     CreateTables();
     res.send("Get Method");
 });
-
-
+//-------------------------------------------------------------
 
 //------------------Post Requests-------------------
+
+//*User Sign In
+app.post("/login", async (req:Request,res:Response) => 
+{
+    let {Username, Password} = req.body; //Parse Request
+    let QueryResponse: any = await RetreivePassword(Username); //We require this so we can index Query Response Later On...
+    let ReturnMessage = {"Success": false, "Message": "Invalid Password or Email"};
+    if(QueryResponse instanceof Error) //If Query is an Error
+        return res.status(401).send(QueryResponse.message);
+    if(!QueryResponse) //If the Query doesn't return anything, then wrong Email
+    {
+        return res.status(402).send(ReturnMessage);
+    }
+    else //If we do get a response, compare...
+    {
+        if(QueryResponse[0].Password === Password) //If passwords match up...
+        {
+            //Adjust Message to reflect States
+            ReturnMessage.Success = true; 
+            ReturnMessage.Message = "Login Successful";
+            let token = await SignToken(QueryResponse[0].AccountID); //Generate the token
+            Object.assign(ReturnMessage, {"Token": token, "ExpiresIn":3600}); //Appends to the previously defined object
+            return res.status(200).send(ReturnMessage);
+        }
+        else //If Passwords don't match, return Error Message
+        {
+            return res.status(402).send(ReturnMessage);
+        }
+    }
+});
+
+
 //*Registering Users
 app.post("/RegisterUser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
@@ -68,7 +89,6 @@ app.post("/RegisterUser", async (req: Request, res: Response): Promise<void> => 
     }
     else
     {
-
         let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
         let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID); //Accessing said resource, so we need to wait for a responses
         if(response instanceof Error)
@@ -85,7 +105,6 @@ app.post("/RegisterUser", async (req: Request, res: Response): Promise<void> => 
             else
             {
                 const token = SignToken(AccountID);
-                res.cookie("Token",token);
                 res.status(200).send(response);
             }
         }
