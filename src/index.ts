@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { Query } from "mysql2/typings/mysql/lib/protocol/sequences/Query.js";
 import { QueryResult } from "mysql2";
+import jwt, { JwtPayload } from "jsonwebtoken";
 dotenv.config();
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
@@ -67,7 +68,7 @@ app.post("/login", async (req:Request,res:Response) =>
             //Adjust Message to reflect States
             ReturnMessage.Success = true; 
             ReturnMessage.Message = "Login Successful";
-            let token = await SignToken(QueryResponse[0].AccountID); //Generate the token
+            let token = await SignToken({"AccountID": QueryResponse[0].AccountID}); //Generate the token
             Object.assign(ReturnMessage, {"Token": token, "ExpiresIn":3600}); //Appends to the previously defined object
             return res.status(200).send(ReturnMessage);
         }
@@ -78,6 +79,23 @@ app.post("/login", async (req:Request,res:Response) =>
     }
 });
 
+//*Refreshing Token
+app.post("/refreshtoken", async (req:Request, res:Response) => {
+    let ReturnMessage = {"Success": false, "Message": "Token Expired"};
+    try {
+          let Secretcode: any = process.env.JWT_secret;
+          let payload: any = jwt.verify(req.body.refreshtoken, Secretcode);  // Verify the token through using the Secret Word. Throw an error otherwise.
+          let token = await SignToken(payload);
+          ReturnMessage.Success = true; 
+          ReturnMessage.Message = "Login Successful";
+          Object.assign(ReturnMessage, {"Token": token, "ExpiresIn":3600}); //Appends to the previously defined object
+          return res.status(200).send(ReturnMessage);
+    } 
+    catch (err) 
+    {
+        return res.status(403).send(ReturnMessage);
+    }
+});
 
 //*Registering Users
 app.post("/RegisterUser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise

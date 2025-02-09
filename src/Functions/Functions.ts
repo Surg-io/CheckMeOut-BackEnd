@@ -5,10 +5,11 @@ import dotenv from 'dotenv';
 import { NextFunction } from "express";
 dotenv.config(); // Load environment variables from .env file
 //---------------Sign Token-------------------
-export async function SignToken(Information:string): Promise<any> //All we need to do is create the token. The frontend should be sending it under the "Authorization" Header
+export async function SignToken(Information:Object): Promise<any> //All we need to do is create the token. The frontend should be sending it under the "Authorization" Header
 {
-    let payload : Object = { AccountID: Information};
-    const token = jwt.sign(payload, "Whopper" ,{expiresIn: "1d"}); //WE NEED TO SET THE SECRET IN .ENV, BUT ITS NOT WORKING RN...PLACEHOLDER VALUE
+    let payload : Object = Information;
+    let Secretcode: any = process.env.JWT_secret;
+    const token = jwt.sign(payload, Secretcode ,{expiresIn: "1d"}); //WE NEED TO SET THE SECRET IN .ENV, BUT ITS NOT WORKING RN...PLACEHOLDER VALUE
     return token;
 }
 
@@ -22,8 +23,9 @@ export async function ValidateToken(req:Request, res:Response, next:NextFunction
       return res.status(401).send({ message: 'Access denied. No token provided.' });
     }
     try {
-      const payload = jwt.verify(token, "Whopper");  // Verify the token through using the Secret Word. Throw an error otherwise.
-      Object.assign(req.body, {"AccountID":payload}); // Attach the payload to req.user
+      let Secretcode: any = process.env.JWT_secret;
+      const payload = jwt.verify(token, Secretcode);  // Verify the token through using the Secret Word. Throw an error otherwise.
+      Object.assign(req.body, payload); // Attach the payload to req.user
       next(); // Proceed to the next middleware or route handler
     } catch (err) {
       return res.status(403).send({ message: 'Invalid or expired token.' });
