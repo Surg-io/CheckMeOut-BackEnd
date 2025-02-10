@@ -72,7 +72,7 @@ app.post("/login", async (req:Request,res:Response) =>
             Object.assign(ReturnMessage, {"Token": token, "ExpiresIn":3600}); //Appends to the previously defined object
             return res.status(200).send(ReturnMessage);
         }
-        else //If Passwords don't match, return Error Message
+        else //If Passwords don't match, return Error 
         {
             return res.status(402).send(ReturnMessage);
         }
@@ -98,39 +98,40 @@ app.post("/refreshtoken", async (req:Request, res:Response) => {
 });
 
 //*Registering Users
-app.post("/RegisterUser", async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
+app.post("/RegisterUser", SanatizeInput("FN","N"),SanatizeInput("FLN","N"),SanatizeInput("Email","E"),SanatizeInput("Password","P"),async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
     //console.log(SanatizeInput(req.body.FN,'N') , SanatizeInput(req.body.LN,'N') , SanatizeInput(req.body.Email,'E') ,SanatizeInput(req.body.Password, 'P'));
+    //Adjust for newly created middleware 
+    /*
     if (!(SanatizeInput(req.body.FN,'N') && SanatizeInput(req.body.LN,'N') && SanatizeInput(req.body.Email,'E') && SanatizeInput(req.body.Password, 'P')))
     {
         res.status(401).send(`Input doesn't match specified requirements...`);
     }
     else
+    {*/
+    let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
+    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID); //Accessing said resource, so we need to wait for a responses
+    if(response instanceof Error)
     {
-        let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
-        let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID); //Accessing said resource, so we need to wait for a responses
+        res.status(401).send(response.message); //Sends the Error
+    }
+    else
+    {
+        response = await SendEmail(req.body.FN, req.body.Email.toString());
         if(response instanceof Error)
         {
-            res.status(401).send(response.message); //Sends the Error
+            res.status(200).send(response.message); //Sends the Error
         }
         else
         {
-            response = await SendEmail(req.body.FN, req.body.Email.toString());
-            if(response instanceof Error)
-            {
-                res.status(401).send(response.message); //Sends the Error
-            }
-            else
-            {
-                const token = SignToken(AccountID);
-                res.status(200).send(response);
-            }
+            res.status(200).send(response);
         }
     }
+
 });
 
 //*Making a reservation for a device
-app.post("/Reserve", async (req: Request, res: Response):Promise<void> => 
+app.post("/Reserve", ValidateToken, async (req: Request, res: Response):Promise<void> => 
 {// We write the code with the intention that times are blocked between devices(2 Hour Increments, 3 Hour, etc.)
     let reservations = [];
     let status:string;
@@ -163,7 +164,7 @@ app.post("/Reserve", async (req: Request, res: Response):Promise<void> =>
 });
 
 //*Returns the reservations made for a certain date
-app.post("/Searchdate", async (req: Request,res: Response):Promise<void> => {
+app.post("/Searchdate", ValidateToken, async (req: Request,res: Response):Promise<void> => {
     let qreserved: any = await ReturnDevices("Reservations",req.body.fullDate); //Get all the data, in order of Device ID;
     let devices = []; 
     let reservedtw = [];
@@ -189,7 +190,7 @@ app.post("/Searchdate", async (req: Request,res: Response):Promise<void> => {
 });
 
 //*Return the CheckIn's
-app.post("/ScanHistory", async (req:Request, res: Response): Promise<void> => //We will build the query based on conditionals
+app.post("/ScanHistory",ValidateToken, async (req:Request, res: Response) => //We will build the query based on conditionals
 {
 
     let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
@@ -199,7 +200,8 @@ app.post("/ScanHistory", async (req:Request, res: Response): Promise<void> => //
     }
     query += ' Order by checkin';
     console.log(query);
-    let history = await checkinhistory(query); res.send(history);
+    let history = await checkinhistory(query); 
+    return res.send(history);
     //res.sendStatus(200);
 
 });
@@ -220,11 +222,11 @@ app.post("/ScanHistory", async (req:Request, res: Response): Promise<void> => //
 });*/
 
 //*Timestamping requests for CheckIn
-app.post("/scan", async (req:Request,res:Response): Promise<void> => 
+app.post("/scan", async (req:Request,res:Response) => 
 {
     const currentDate = new Date().toISOString(); //Timestamps when the request comes in, or whenever a code is scanned
     const response = await NewScan("ScanIn",req.body.ID, currentDate); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
-    res.send("Scan Executed");
+    return res.send("Scan Executed");
 });
 
 

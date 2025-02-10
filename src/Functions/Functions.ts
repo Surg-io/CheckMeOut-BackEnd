@@ -8,8 +8,8 @@ dotenv.config(); // Load environment variables from .env file
 export async function SignToken(Information:Object): Promise<any> //All we need to do is create the token. The frontend should be sending it under the "Authorization" Header
 {
     let payload : Object = Information;
-    let Secretcode: any = process.env.JWT_secret;
-    const token = jwt.sign(payload, Secretcode ,{expiresIn: "1d"}); //WE NEED TO SET THE SECRET IN .ENV, BUT ITS NOT WORKING RN...PLACEHOLDER VALUE
+    let Secretcode: any = process.env.JWT_secret; //Need to seperate it as ts doesn't allow direct insertion...
+    const token = jwt.sign(payload, Secretcode ,{expiresIn: "1d"}); 
     return token;
 }
 
@@ -39,19 +39,30 @@ const EmailRegex = new RegExp('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 const PassRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
 
 
-export function SanatizeInput(input:string, type:string): boolean {
-    //We will use a char to denote what regex we are going to use
-    switch(type)
-    {
-        case 'N': //Name Sanitize
-            return NameRegex.test(input);
-        case 'E': //Email Sanitize
-            return EmailRegex.test(input);
-        case 'P': //Password Sanatize
-            return PassRegex.test(input);
+export function SanatizeInput(field:string, type:string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const input = req.body[field];
+
+    let isValid = false;
+    switch (type) {
+        case 'N': // Name validation
+            isValid = NameRegex.test(input);
+            break;
+        case 'E': // Email validation
+            isValid = EmailRegex.test(input);
+            break;
+        case 'P': // Password validation
+            isValid = PassRegex.test(input);
+            break;
         default:
-            return false;
+            isValid = false;
     }
+
+    if (!isValid) {
+        return res.status(400).send(`Invalid ${field}: Does not match requirements`);
+    }
+    next();
+};
 }
 
 //------------------Email Sending-----------------------
@@ -82,7 +93,7 @@ export async function SendEmail(Name:string, Email:string): Promise<any>
       }
       catch(err)
       {
-        return Error("Error in Sending Email" + err);
+        return Error("Registration Complete, but error in sending email" + err);
       }
 
 }
