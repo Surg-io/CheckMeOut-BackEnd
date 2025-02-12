@@ -5,11 +5,11 @@ import dotenv from 'dotenv';
 import { NextFunction } from "express";
 dotenv.config(); // Load environment variables from .env file
 //---------------Sign Token-------------------
-export async function SignToken(Information:Object): Promise<any> //All we need to do is create the token. The frontend should be sending it under the "Authorization" Header
+export async function SignToken(Information:Object, time:any): Promise<any> //All we need to do is create the token. The frontend should be sending it under the "Authorization" Header
 {
     let payload : Object = Information;
     let Secretcode: any = process.env.JWT_secret; //Need to seperate it as ts doesn't allow direct insertion...
-    const token = jwt.sign(payload, Secretcode ,{expiresIn: "1d"}); 
+    const token = jwt.sign(payload, Secretcode ,{expiresIn: time}); 
     return token;
 }
 

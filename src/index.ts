@@ -54,7 +54,7 @@ app.post("/login", async (req:Request,res:Response) =>
 {
     let {Username, Password} = req.body; //Parse Request
     let QueryResponse: any = await RetreivePassword(Username); //We require this so we can index Query Response Later On...
-    let ReturnMessage = {"Success": false, "Message": "Invalid Password or Email"};
+    let ReturnMessage = {"success": false, "message": "Invalid Password or Email"};
     if(QueryResponse instanceof Error) //If Query is an Error
         return res.status(401).send(QueryResponse.message);
     if(!QueryResponse) //If the Query doesn't return anything, then wrong Email
@@ -66,10 +66,13 @@ app.post("/login", async (req:Request,res:Response) =>
         if(QueryResponse[0].Password === Password) //If passwords match up...
         {
             //Adjust Message to reflect States
-            ReturnMessage.Success = true; 
-            ReturnMessage.Message = "Login Successful";
-            let token = await SignToken({"AccountID": QueryResponse[0].AccountID}); //Generate the token
-            Object.assign(ReturnMessage, {"Token": token, "ExpiresIn":3600}); //Appends to the previously defined object
+            ReturnMessage.success = true; 
+            ReturnMessage.message = "Login Successful";
+            let payload = {"userId": QueryResponse[0].AccountID}
+            let token = await SignToken(payload,"1h"); //Generate the token
+            let refreshtoken = await SignToken(payload,"7d") //Generate refreshtoken
+            Object.assign(ReturnMessage, {"token": token, "refreshtoken": refreshtoken, "expiresIn":3600}); //Appends to the previously defined object
+
             return res.status(200).send(ReturnMessage);
         }
         else //If Passwords don't match, return Error 
@@ -81,14 +84,14 @@ app.post("/login", async (req:Request,res:Response) =>
 
 //*Refreshing Token
 app.post("/refreshtoken", async (req:Request, res:Response) => {
-    let ReturnMessage = {"Success": false, "Message": "Token Expired"};
+    let ReturnMessage = {"success": false, "message": "Token Expired"};
     try {
           let Secretcode: any = process.env.JWT_secret;
           let payload: any = jwt.verify(req.body.refreshtoken, Secretcode);  // Verify the token through using the Secret Word. Throw an error otherwise.
-          let token = await SignToken(payload);
-          ReturnMessage.Success = true; 
-          ReturnMessage.Message = "Login Successful";
-          Object.assign(ReturnMessage, {"Token": token, "ExpiresIn":3600}); //Appends to the previously defined object
+          let token = await SignToken(payload,"1h");
+          ReturnMessage.success = true; 
+          ReturnMessage.message = "Login Successful";
+          Object.assign(ReturnMessage, {"token": token, "expiresIn":3600}); //Appends to the previously defined object
           return res.status(200).send(ReturnMessage);
     } 
     catch (err) 
@@ -98,7 +101,7 @@ app.post("/refreshtoken", async (req:Request, res:Response) => {
 });
 
 //*Registering Users
-app.post("/RegisterUser", SanatizeInput("FN","N"),SanatizeInput("FLN","N"),SanatizeInput("Email","E"),SanatizeInput("Password","P"),async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
+app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("FLN","N"),SanatizeInput("Email","E"),SanatizeInput("Password","P"),async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
     //console.log(SanatizeInput(req.body.FN,'N') , SanatizeInput(req.body.LN,'N') , SanatizeInput(req.body.Email,'E') ,SanatizeInput(req.body.Password, 'P'));
     //Adjust for newly created middleware 
@@ -127,11 +130,10 @@ app.post("/RegisterUser", SanatizeInput("FN","N"),SanatizeInput("FLN","N"),Sanat
             res.status(200).send(response);
         }
     }
-
 });
 
 //*Making a reservation for a device
-app.post("/Reserve", ValidateToken, async (req: Request, res: Response):Promise<void> => 
+app.post("/reserve", ValidateToken, async (req: Request, res: Response):Promise<void> => 
 {// We write the code with the intention that times are blocked between devices(2 Hour Increments, 3 Hour, etc.)
     let reservations = [];
     let status:string;
@@ -140,7 +142,7 @@ app.post("/Reserve", ValidateToken, async (req: Request, res: Response):Promise<
     let badreservations = [];
     for(let x of req.body) //For every reservation that is sent to us from frontend...
     {
-        let response = await RequestReservation("Reservations",x.device, x.DeviceID,x.time); //...try to add it to the reservations table.
+        let response = await RequestReservation("Reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.
         if(response[0]) //If we don't get an error...
         {
             status = "Success";//...then we have successfully logged the reservations. The status will reflect so.
@@ -152,7 +154,7 @@ app.post("/Reserve", ValidateToken, async (req: Request, res: Response):Promise<
            reason = response[1];
            badreservations.push(index);
         }
-        reservations.push({"DeviceID": x.DeviceID, //Add the information of the reservation and its status of completion to an array...
+        reservations.push({"deviceId": x.deviceId, //Add the information of the reservation and its status of completion to an array...
             "device": x.device,
             "time": x.time,
             "status": status,
@@ -160,37 +162,37 @@ app.post("/Reserve", ValidateToken, async (req: Request, res: Response):Promise<
         index += 1;
     }
     console.log(reservations);
-    res.send({"Reservations" : reservations,  "ErrorIndicies": badreservations}); //...and the array gets send back to frontend.
+    res.send({"reservations" : reservations,  "errorIndicies": badreservations}); //...and the array gets send back to frontend.
 });
 
 //*Returns the reservations made for a certain date
-app.post("/Searchdate", ValidateToken, async (req: Request,res: Response):Promise<void> => {
-    let qreserved: any = await ReturnDevices("Reservations",req.body.fullDate); //Get all the data, in order of Device ID;
+app.post("/searchdate", ValidateToken, async (req: Request,res: Response)  => {
+    let qreserved: any = await ReturnDevices("reservations",req.body.fullDate); //Get all the data, in order of Device ID;
     let devices = []; 
-    let reservedtw = [];
-    let previd = {"DeviceName": "Dummy", "DeviceID" : -1}; //For first check
+    let reservedtw = []
+    let previd = {"deviceName": "Dummy", "deviceId" : -1}; //For first check
     for(let x of qreserved) //Go through Data
     {
-        if(previd.DeviceID == x.DeviceID || previd.DeviceID == -1)//Add the times and status
+        if(previd.deviceId == x.deviceId || previd.deviceId == -1)//Add the times and status
         {
-            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-GB").toString(),"endTime":x.endtime.toLocaleTimeString("en-GB").toString(), "ResStatus":x.ResStatus});
+            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-GB").toString(),"endTime":x.endtime.toLocaleTimeString("en-GB").toString(), "resStatus":x.ResStatus});
         }
         else //Upon encountering a new device, append the previous device with array of times, and start a new time array for the current device
         {
-            devices.push({"DeviceID": `${previd.DeviceID}`, "DeviceName":`${previd.DeviceName}`, "TimeWindows": JSON.parse(JSON.stringify(reservedtw))}); //There is only shallow copying in JS, so we need to deep copy
+            devices.push({"deviceId": `${previd.deviceId}`, "deviceName":`${previd.deviceName}`, "timeWindows": JSON.parse(JSON.stringify(reservedtw))}); //There is only shallow copying in JS, so we need to deep copy
             reservedtw.length = 0;
-            reservedtw.push({"StartTime": x.starttime.toLocaleTimeString("en-GB").toString(),"EndTime":x.endtime.toLocaleTimeString("en-GB").toString(), "ResStatus":x.ResStatus});
+            reservedtw.push({"StartTime": x.starttime.toLocaleTimeString("en-GB").toString(),"EndTime":x.endtime.toLocaleTimeString("en-GB").toString(), "resStatus":x.ResStatus});
         }
         console.log(reservedtw.length)
         previd = x;
     }
-    devices.push({"DeviceID": `${previd.DeviceID}`, "DeviceName":`${previd.DeviceName}`, "TimeWindows": reservedtw}); //After the last entry is read, append the last entry along with its array. This doesn't need deep copy as its the most recent one
-    let response = {"SelectedDate": `${req.body.year}-${req.body.month}-${req.body.day}`, "Devices": devices};
-    res.send(response)
+    devices.push({"deviceId": `${previd.deviceId}`, "deviceName":`${previd.deviceName}`, "timeWindows": reservedtw}); //After the last entry is read, append the last entry along with its array. This doesn't need deep copy as its the most recent one
+    let response = {"selectedDate": `${req.body.year}-${req.body.month}-${req.body.day}`, "devices": devices};
+    return res.send(response);
 });
 
 //*Return the CheckIn's
-app.post("/ScanHistory",ValidateToken, async (req:Request, res: Response) => //We will build the query based on conditionals
+app.post("/scanHistory",ValidateToken, async (req:Request, res: Response) => //We will build the query based on conditionals
 {
 
     let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
