@@ -1,5 +1,5 @@
 import express, { Express, Request, Response } from "express";
-import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, SendVerificationEmail,ValidateVerificationCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
 import {SanatizeInput, SendEmail,SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
@@ -100,8 +100,21 @@ app.post("/refreshtoken", async (req:Request, res:Response) => {
     }
 });
 
+
+app.post("/getregistercode", SanatizeInput("Email","E"), async (req:Request,res:Response) =>{
+    let EmailResponse = SendVerificationEmail(req.body.Email);
+    if (EmailResponse instanceof Error)
+    {
+        return res.status(401).send({"status":"Failed","message":EmailResponse.message});
+    }
+    else
+    {
+        return res.status(200).send(EmailResponse);
+    }
+});
+
 //*Registering Users
-app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("FLN","N"),SanatizeInput("Email","E"),SanatizeInput("Password","P"),async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
+app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),SanatizeInput("Email","E"),SanatizeInput("Password","P"), ValidateVerificationCode,async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
     //console.log(SanatizeInput(req.body.FN,'N') , SanatizeInput(req.body.LN,'N') , SanatizeInput(req.body.Email,'E') ,SanatizeInput(req.body.Password, 'P'));
     //Adjust for newly created middleware 
@@ -114,21 +127,14 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("FLN","N"),Sanat
     {*/
     let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
     let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID); //Accessing said resource, so we need to wait for a responses
+    
     if(response instanceof Error)
     {
-        res.status(401).send(response.message); //Sends the Error
+        res.status(401).send({"success":false,"message": "Verification code was successful, but there was an error: " + response.message}); //Sends the Error
     }
     else
     {
-        response = await SendEmail(req.body.FN, req.body.Email.toString());
-        if(response instanceof Error)
-        {
-            res.status(200).send(response.message); //Sends the Error
-        }
-        else
-        {
-            res.status(200).send(response);
-        }
+        res.status(200).send(response);
     }
 });
 
@@ -169,7 +175,7 @@ app.post("/reserve", ValidateToken, async (req: Request, res: Response):Promise<
 app.post("/searchdate", ValidateToken, async (req: Request,res: Response)  => {
     let qreserved: any = await ReturnDevices("reservations",req.body.fullDate); //Get all the data, in order of Device ID;
     let devices = []; 
-    let reservedtw = []
+    let reservedtw = [];
     let previd = {"deviceName": "Dummy", "deviceId" : -1}; //For first check
     for(let x of qreserved) //Go through Data
     {

@@ -1,4 +1,6 @@
 import mysql, { QueryResult } from 'mysql2';
+import express, { Express, NextFunction, Request, Response } from "express";
+import nodemailer from "nodemailer";
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -26,6 +28,7 @@ export async function CreateTables()
         await pool.query("CREATE TABLE `ScanIn` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
         await pool.query("CREATE TABLE `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
         await pool.query("CREATE TABLE `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL,FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
+        await pool.query("Create Table `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` int(9), Primary Key(`Email`))")
         console.log("Created Tables");
     }
     catch(err){
@@ -42,7 +45,7 @@ export async function RegNewUser (table:string,AccountID:string,FN:string,LN:str
     let response;
     try {
         response =  await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,StudentID) VALUES (?,?,?,Date(?),?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,StudentID]); //.query returns a "query packet", which you assign to arrays. 
-        return response + ": Registered New User";
+        return {"success":true,"message": response + ": Registered New User"};
     }
     catch(err){
         response = Error("Error in registering new user: " + err);
@@ -77,6 +80,57 @@ export async function RequestReservation(table:string, device:string, ID:string,
     }
 }
 
+export async function SendVerificationEmail(Email:string)
+{
+    let isthereError = false;
+    let errormsg;
+    let verificationcode = Math.random().toString().substring(2,8);
+    try
+    {
+        var transporter = nodemailer.createTransport({
+            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+              user: process.env.Makerspace_Email,
+              pass: process.env.Makerspace_Email_Password
+            }
+          });
+        var mailOptions = {
+            from: process.env.Makerspace_Email,
+            to: Email,
+            subject: "Email Verification Code",
+            text: `Thank you for your interest in the makerspace. To complete the registration process, enter the following code with your information on the registration page: ${verificationcode}. Thank you for joining the Makerspace!`
+          };
+    }
+    catch(err)
+    {
+        isthereError = true;
+        errormsg = err;
+    }
+    if(isthereError)
+    {
+        return Error("Error in Sending Email" + errormsg);
+    }
+    try
+    {
+        await pool.query(`Insert into RegistrationVerificationCodes (Email, verificationcode) VALUES (?,?)`,[Email,verificationcode]);
+    }
+    catch(err)
+    {
+        isthereError = true;
+        errormsg = err;
+    }
+    if(isthereError)
+    {
+        return Error("Error in Logging Verification Code. Disregard any email Sent" + errormsg);
+    }
+    else
+    {
+        return {"status":true, "message":"Verification Information Sent and Logged Successfully"};
+    }
+}
 //----------------Select Queries----------------------
 
 
@@ -128,6 +182,24 @@ export async function RetreivePassword(Username:string)
     catch (err) {
         return Error("Error in Returning Query of Check Ins: " + err);
     }
+}
+
+export async function ValidateVerificationCode(req:Request,res:Response,next:NextFunction)
+{
+    let rows;
+    try{
+        [rows] =  await pool.query(`SELECT Code from RegistrationVerificationCodes WHERE EMAIL = ?`,[req.body.Email]);//Get the code based on the email provided by the user
+    }
+    catch (err) {
+        return res.status(401).send({"success": false, "message": "Error in retreiving Verification Code for User " + err});
+    }
+    if(!(rows[0].Code === req.body.Code)) //If verification code is not the same as the one we have in the DB for that given email
+    {
+        return res.status(401).send({"success": false, "message": "Verification Code is not valid for this email"});
+    }
+
+
+    next();
 }
 
 /*We are not using this rn
