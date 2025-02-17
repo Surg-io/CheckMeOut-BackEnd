@@ -1,7 +1,7 @@
 import express, { Express, Request, Response } from "express";
-import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, SendVerificationEmail,ValidateVerificationCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, SendVerificationEmail,ValidateVerificationCode,GetQRCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
-import {SanatizeInput, SendEmail,SignToken,ValidateToken} from "./Functions/Functions.js";
+import {SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
 import request from 'supertest';
 import cookieParser from 'cookie-parser';
@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import { Query } from "mysql2/typings/mysql/lib/protocol/sequences/Query.js";
 import { QueryResult } from "mysql2";
 import jwt, { JwtPayload } from "jsonwebtoken";
+import { Sign } from "crypto";
 dotenv.config();
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
@@ -45,15 +46,37 @@ app.get("/inittables", (req: Request, res: Response): void => {
     CreateTables();
     res.send("Get Method");
 });
+
+app.get("/getqrcode",ValidateToken,(req:Request,res:Response) => 
+{
+    let AccountID = req.body.userId; //User can only get a token if the email is exists in the system. This is the only source of error
+    let QueryResponse = GetQRCode(AccountID);
+    if(QueryResponse instanceof Error)
+    {
+        return res.status(401).send({"success": false, "message": QueryResponse.message, "qrcode":"Error"});
+    }
+    else
+    {
+        return res.status(200).send({"success": true, "message": "QRCode Retreived!", "qrcode":QueryResponse[0].QRCode});
+    }
+ 
+});
+
 //-------------------------------------------------------------
 
 //------------------Post Requests-------------------
 
 //*User Sign In
-app.post("/login", async (req:Request,res:Response) => 
+app.post("/login", SanatizeInput("Username","E"), async (req:Request,res:Response) => 
 {
     let {Username, Password} = req.body; //Parse Request
-    let QueryResponse: any = await RetreivePassword(Username); //We require this so we can index Query Response Later On...
+    let QueryResponse: any = await RetreivePassword(Username,0); //Check to see if the logging in is coming from an Admin   
+    let admin = true;
+    if(!QueryResponse) //If its null
+    {
+        QueryResponse = await RetreivePassword(Username,1); //We require this so we can index Query Response Later On...
+        admin = false;
+    }
     let ReturnMessage = {"success": false, "message": "Invalid Password or Email"};
     if(QueryResponse instanceof Error) //If Query is an Error
         return res.status(401).send(QueryResponse.message);
@@ -68,11 +91,17 @@ app.post("/login", async (req:Request,res:Response) =>
             //Adjust Message to reflect States
             ReturnMessage.success = true; 
             ReturnMessage.message = "Login Successful";
-            let payload = {"userId": QueryResponse[0].AccountID}
+            let payload = {"exp": "1h"};
+            if (admin)
+            {
+                Object.assign(payload, {"permissions": 524287}); //Admin Permissions and payload info
+            }
+            else
+            {
+                Object.assign(payload,{"userId": QueryResponse[0].AccountID, "permissions": 35029});
+            }
             let token = await SignToken(payload,"1h"); //Generate the token
-            let refreshtoken = await SignToken(payload,"7d") //Generate refreshtoken
-            Object.assign(ReturnMessage, {"token": token, "refreshtoken": refreshtoken, "expiresIn":3600}); //Appends to the previously defined object
-
+            Object.assign(ReturnMessage, {"token": token}); //Appends to the previously defined object
             return res.status(200).send(ReturnMessage);
         }
         else //If Passwords don't match, return Error 
@@ -82,7 +111,7 @@ app.post("/login", async (req:Request,res:Response) =>
     }
 });
 
-//*Refreshing Token
+/*Refreshing Token
 app.post("/refreshtoken", async (req:Request, res:Response) => {
     let ReturnMessage = {"success": false, "message": "Token Expired"};
     try {
@@ -99,7 +128,7 @@ app.post("/refreshtoken", async (req:Request, res:Response) => {
         return res.status(403).send(ReturnMessage);
     }
 });
-
+*/
 
 app.post("/getregistercode", SanatizeInput("Email","E"), async (req:Request,res:Response) =>{
     let EmailResponse = SendVerificationEmail(req.body.Email);
@@ -114,7 +143,7 @@ app.post("/getregistercode", SanatizeInput("Email","E"), async (req:Request,res:
 });
 
 //*Registering Users
-app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),SanatizeInput("Email","E"),SanatizeInput("Password","P"), ValidateVerificationCode,async (req: Request, res: Response): Promise<void> => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
+app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),SanatizeInput("Email","E"),SanatizeInput("Password","P"), ValidateVerificationCode,async (req: Request, res: Response) => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
     //console.log(SanatizeInput(req.body.FN,'N') , SanatizeInput(req.body.LN,'N') , SanatizeInput(req.body.Email,'E') ,SanatizeInput(req.body.Password, 'P'));
     //Adjust for newly created middleware 
@@ -126,17 +155,20 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),Sanati
     else
     {*/
     let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
-    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID); //Accessing said resource, so we need to wait for a responses
+    let token = SignToken(AccountID,'1h').toString().substring(0,40);
+    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID,token); //Accessing said resource, so we need to wait for a responses
     
     if(response instanceof Error)
     {
-        res.status(401).send({"success":false,"message": "Verification code was successful, but there was an error: " + response.message}); //Sends the Error
+        return res.status(401).send({"success":false,"message": "Verification code was successful, but there was an error: " + response.message}); //Sends the Error
     }
     else
     {
-        res.status(200).send(response);
+        return res.status(200).send(response);
     }
 });
+
+
 
 //*Making a reservation for a device
 app.post("/reserve", ValidateToken, async (req: Request, res: Response):Promise<void> => 
@@ -198,19 +230,38 @@ app.post("/searchdate", ValidateToken, async (req: Request,res: Response)  => {
 });
 
 //*Return the CheckIn's
-app.post("/scanHistory",ValidateToken, async (req:Request, res: Response) => //We will build the query based on conditionals
+app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: Response) => //We will build the query based on conditionals
 {
-
-    let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
-    if(req.body.ID)
+    if(req.body.admin) //If an admin is calling...
     {
-        query += ` and ID = ${req.body.ID}`
+
+        //Do a Union, descending by Starttime
+        let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
+        if(req.body.ID)
+        {
+            query += ` and ID = ${req.body.ID}`
+        }
+        query += ' Order DESCENDING by checkin';
+        console.log(query);
+        let history = await checkinhistory(query); 
+        
+
+        let query2 = `select * from ReservationHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
+        if(req.body.ID)
+        {
+            query += ` and ID = ${req.body.ID}`
+        }
+        query += ' Order DESCENDING by checkin';
+        console.log(query);
+        let history = await checkinhistory(query); 
+        return res.send(history);
+
     }
-    query += ' Order by checkin';
-    console.log(query);
-    let history = await checkinhistory(query); 
-    return res.send(history);
+    
     //res.sendStatus(200);
+
+    Select * from reservation history (where userID = userid)
+Select * from checkin history (where userID = userid)
 
 });
 //Non-Promise Based Post Request

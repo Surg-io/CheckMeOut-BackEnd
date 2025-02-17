@@ -25,13 +25,26 @@ export async function ValidateToken(req:Request, res:Response, next:NextFunction
     try {
       let Secretcode: any = process.env.JWT_secret;
       const payload = jwt.verify(token, Secretcode);  // Verify the token through using the Secret Word. Throw an error otherwise.
-      Object.assign(req.body, payload); // Attach the payload to req.user
+      Object.assign(req.body, payload); // Attach the payload to req.body
       next(); // Proceed to the next middleware or route handler
     } catch (err) {
       return res.status(403).send({ message: 'Invalid or expired token.' });
     }
 }
 
+export async function SetPermissions(req:Request, res:Response, next:NextFunction)
+{
+  let permission = req.body.permissions;
+  if (permission == 524287) //If the Person loggin in is an admin
+  {
+      Object.assign(req.body,  {"admin": 1}); // Makes APIs to execute admin functions
+  }
+  else
+  {
+      Object.assign(req.body,  {"admin": 0}); // Makes API's execute user functions
+  }
+  next();
+}
 
 //---------------Input Sanatization-------------------
 const NameRegex = new RegExp('^[A-Z][a-z]{0,99}$');

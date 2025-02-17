@@ -20,15 +20,20 @@ export async function CreateTables()
     try {
         
         await pool.query("DROP TABLE `Reservations`");
+        await pool.query("DROP TABLE `ReservationHistory`");
         await pool.query("DROP TABLE `ScanHistory`");
         await pool.query("DROP TABLE `ScanIn`");
         await pool.query("DROP TABLE `Students`");
+        await pool.query("DROP TABLE  `RegistrationVerificationCodes`")
+        await pool.query("DROP TABLE `Admins`")
         //For Testing Purposes only...Delete ^ When we actually deploy
-        await pool.query("CREATE TABLE `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `StudentID` int (9) NOT NULL, PRIMARY KEY (`AccountID`),UNIQUE `StudentID` (`StudentID`), UNIQUE `EMAIL` (`EMAIL`))");
+        await pool.query("CREATE TABLE `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `StudentID` int (9) NOT NULL, `QRCode` varchar(50) NOT null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`),UNIQUE `StudentID` (`StudentID`), UNIQUE `EMAIL` (`EMAIL`))");
         await pool.query("CREATE TABLE `ScanIn` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
         await pool.query("CREATE TABLE `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
         await pool.query("CREATE TABLE `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL,FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
-        await pool.query("Create Table `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` int(9), Primary Key(`Email`))")
+        await pool.query("CREATE TABLE `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` int(9), Primary Key(`Email`))")
+        await pool.query("CREATE TABLE `Admins` (`Email` varchar NOT NULL (100), `Password` varchar(50) NOT NULL, Primary Key(`Email`))")
         console.log("Created Tables");
     }
     catch(err){
@@ -41,10 +46,10 @@ export async function CreateTables()
 
 
 //Query For Registering Users
-export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:string,Email:string,Major:string,Password:string,StudentID:string): Promise<any> { //This function needs to be await as we are accessing a database resource
+export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:string,Email:string,Major:string,Password:string,StudentID:string,Code:string): Promise<any> { //This function needs to be await as we are accessing a database resource
     let response;
     try {
-        response =  await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,StudentID) VALUES (?,?,?,Date(?),?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,StudentID]); //.query returns a "query packet", which you assign to arrays. 
+        response = await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,StudentID,QRCode) VALUES (?,?,?,Date(?),?,?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,StudentID,Code]); //.query returns a "query packet", which you assign to arrays. 
         return {"success":true,"message": response + ": Registered New User"};
     }
     catch(err){
@@ -133,6 +138,17 @@ export async function SendVerificationEmail(Email:string)
 }
 //----------------Select Queries----------------------
 
+export async function GetQRCode(AccID:string)
+{
+    try{
+        const [rows] = await pool.query(`SELECT QRCODE FROM STUDENTS WHERE ACCOUNTID = ?`, AccID); //Should only return one...
+        return rows;
+    }
+    catch(err)
+    {
+        return Error("Error in Returning QR Code: " + err);
+    }
+}
 
 export async function GetUserData (): Promise<QueryResult> {
     const [rows] = await pool.query("SELECT * FROM student");
@@ -173,15 +189,28 @@ export async function checkinhistory(query:string)
     }
 }
 
-export async function RetreivePassword(Username:string)
+export async function RetreivePassword(Username:string, Database: number)
 {
+    if (Database) //If You are querying in the Student Database
+    {
+        try{
+            const [rows] =  await pool.query(`SELECT AccountID, Password from Students WHERE EMAIL = ?`,[Username]);//Get the reservations based on the query
+            return rows;
+        }
+        catch (err) {
+            return Error("Error in Returning Query of Students: " + err);
+        }
+    }
+   else
+   {
     try{
-        const [rows] =  await pool.query(`SELECT AccountID, Password from Students WHERE EMAIL = ?`,[Username]);//Get the reservations based on the query
+        const [rows] =  await pool.query(`SELECT Password from Admins WHERE EMAIL = ?`,[Username]);//Get the reservations based on the query
         return rows;
     }
     catch (err) {
-        return Error("Error in Returning Query of Check Ins: " + err);
+        return Error("Error in Returning Query of Admins: " + err);
     }
+   }
 }
 
 export async function ValidateVerificationCode(req:Request,res:Response,next:NextFunction)
