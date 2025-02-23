@@ -1,5 +1,5 @@
 import express, { Express, Request, Response } from "express";
-import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates, CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
 import {calculateTotal, SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
@@ -110,13 +110,14 @@ app.get("/getStats",ValidateToken, SetPermissions, async (req:Request,res:Respon
           }});
           try {
             // Get reservations for each time range
-             pday = await getReservations(1);
-             pweek = await getReservations(7);
-             pmonth = await getReservations(30);
-             p6month = await getReservations(180);
+             pday = await CountCheckIns(1);
+             pweek = await CountCheckIns(7);
+             pmonth = await CountCheckIns(30);
+             p6month = await CountCheckIns(180);
           } catch (err) {
             res.status(401).send({"Success": false, "Message": "Error in Returning Number of Users" + err });
           }
+          Object.assign(data,{"checkinsMade": {"past24h": pday,"past7d": pweek,"past30d": pmonth,"past6m": p6month}});
 
     }
 });
@@ -190,13 +191,17 @@ app.post("/refreshtoken", async (req:Request, res:Response) => {
 */
 
 app.post("/getregistercode", SanatizeInput("Email","E"), async (req:Request,res:Response) =>{
-    let EmailResponse = SendVerificationEmail(req.body.Email);
+    console.log("Post Request");
+    let EmailResponse =  await SendVerificationEmail(req.body.Email);
+
     if (EmailResponse instanceof Error)
     {
+        console.log("Error");
         return res.status(401).send({"status":"Failed","message":EmailResponse.message});
     }
     else
     {
+        console.log("Success");
         return res.status(200).send(EmailResponse);
     }
 });
