@@ -96,7 +96,7 @@ export async function SendVerificationEmail(Email:string)
     try
     {
         //Deletes the Email if it Exists Already
-        await pool.query(`DELETE FROM RegistrationVerificationCodes Email id = ?`, Email);
+        await pool.query(`DELETE FROM RegistrationVerificationCodes Where Email id = ?`, Email);
         await pool.query(`Insert into RegistrationVerificationCodes (Email, Code) VALUES (?,?)`,[Email,verificationcode]);
         console.log("Query Send");
     }
