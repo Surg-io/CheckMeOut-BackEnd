@@ -50,7 +50,7 @@ app.get("/inittables", (req: Request, res: Response): void => {
 app.get("/getqrcode",ValidateToken,(req:Request,res:Response) => 
 {
     let AccountID = req.body.userId; //User can only get a token if the email is exists in the system. This is the only source of error
-    let QueryResponse = GetQRCode(AccountID);
+    let QueryResponse:any = GetQRCode(AccountID);
     if(QueryResponse instanceof Error)
     {
         return res.status(401).send({"success": false, "message": QueryResponse.message, "qrcode":"Error"});
@@ -242,28 +242,63 @@ app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: 
             query += ` and ID = ${req.body.ID}`
         }
         query += ' Order DESCENDING by checkin';
-        console.log(query);
-        let history = await checkinhistory(query); 
-        
-
         let query2 = `select * from ReservationHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
         if(req.body.ID)
         {
-            query += ` and ID = ${req.body.ID}`
+            query2 += ` and ID = ${req.body.ID}`
         }
+        query2 += ' Order DESCENDING by starttime';
+        
+        let scanhistory: any = await checkinhistory(query); 
+        let reservationhistory:any = await checkinhistory(query2);
+        let returnmessage = {"success": false, "messasage": "Error in Returning Query"}
+        if (scanhistory instanceof Error || reservationhistory instanceof Error)
+        {
+            return res.status(401).send(returnmessage);
+        }
+        else
+        {
+            returnmessage.success = true;
+            returnmessage.messasage = "Success in returning info";
+            Object.assign(returnmessage,{"ScanHistory": scanhistory, "ReservationHistory":reservationhistory});
+            return res.status(200).send(returnmessage);
+        }
+    }
+    else //If User is Calling...
+    {
+        let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
+        query += `where AccountID = ${req.body.AccountID}`
         query += ' Order DESCENDING by checkin';
-        console.log(query);
-        let history = await checkinhistory(query); 
-        return res.send(history);
+        //Return Histories between time period where the ID matches their own ID
+        let query2 = `select * from ReservationHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
+        query2 += `where AccountID = ${req.body.AccountID}`
+        query2 += ' Order DESCENDING by StartTime';
+        
+        let scanhistory: any = await checkinhistory(query); 
+        let reservationhistory:any = await checkinhistory(query2);
+        let returnmessage = {"success": false, "messasage": "Error in Returning Query"}
+        if (scanhistory instanceof Error || reservationhistory instanceof Error)
+        {
+            return res.status(401).send(returnmessage);
+        }
+        else
+        {
+            returnmessage.success = true;
+            returnmessage.messasage = "Success in returning info";
+            Object.assign(returnmessage,{"ScanHistory": scanhistory, "ReservationHistory":reservationhistory});
+            return res.status(200).send(returnmessage);
+        }
 
     }
-    
-    //res.sendStatus(200);
-
-    Select * from reservation history (where userID = userid)
-Select * from checkin history (where userID = userid)
-
 });
+
+//*Cancel Reservation
+
+//app.post("/cancelReservation",)
+
+
+
+
 //Non-Promise Based Post Request
 /*app.post("/registeruser",  (req: Request, res: Response): void => { //This function is async as we have a function inside that is accessing a resource. 
     console.log(req.body);    console.log(`${req.body.Email}`)

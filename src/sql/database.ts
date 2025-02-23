@@ -184,8 +184,8 @@ export async function checkinhistory(query:string)
         return rows;
     }
     catch (err) {
-        console.log("Error in Returning Query of Check Ins: " + err)
-        return err;
+        
+        return Error("Error in returning Query" + err);
     }
 }
 
@@ -215,7 +215,7 @@ export async function RetreivePassword(Username:string, Database: number)
 
 export async function ValidateVerificationCode(req:Request,res:Response,next:NextFunction)
 {
-    let rows;
+    let rows : any;
     try{
         [rows] =  await pool.query(`SELECT Code from RegistrationVerificationCodes WHERE EMAIL = ?`,[req.body.Email]);//Get the code based on the email provided by the user
     }
