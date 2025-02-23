@@ -37,11 +37,7 @@ export async function SetPermissions(req:Request, res:Response, next:NextFunctio
   let permission = req.body.permissions;
   if (permission == 524287) //If the Person loggin in is an admin
   {
-      Object.assign(req.body,  {"admin": 1}); // Makes APIs to execute admin functions
-  }
-  else
-  {
-      Object.assign(req.body,  {"admin": 0}); // Makes API's execute user functions
+      Object.assign(req.body,  {"admin": 1}); // Makes an Admin Attribute and attaches it to req body
   }
   next();
 }
@@ -77,6 +73,12 @@ export function SanatizeInput(field:string, type:string) {
     next();
 };
 }
+
+//--------------Calculating Device Totals------------------
+export function calculateTotal(devices: any) {
+  return devices.reduce((total:any, device:any) => total + device.count, 0);
+}
+
 
 //------------------Email Sending-----------------------
 

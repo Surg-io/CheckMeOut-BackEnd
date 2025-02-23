@@ -2,6 +2,7 @@ import mysql, { QueryResult } from 'mysql2';
 import express, { Express, NextFunction, Request, Response } from "express";
 import nodemailer from "nodemailer";
 import dotenv from 'dotenv';
+import { time } from 'console';
 dotenv.config();
 
 // ~MYSQL Databasse Connection~
@@ -27,7 +28,7 @@ export async function CreateTables()
         await pool.query("DROP TABLE  `RegistrationVerificationCodes`")
         await pool.query("DROP TABLE `Admins`")
         //For Testing Purposes only...Delete ^ When we actually deploy
-        await pool.query("CREATE TABLE `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `StudentID` int (9) NOT NULL, `QRCode` varchar(50) NOT null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`),UNIQUE `StudentID` (`StudentID`), UNIQUE `EMAIL` (`EMAIL`))");
+        await pool.query("CREATE TABLE `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `StudentID` int (9) NOT NULL, `QRCode` varchar(50) NOT null, `Created` datetime not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`),UNIQUE `StudentID` (`StudentID`), UNIQUE `EMAIL` (`EMAIL`))");
         await pool.query("CREATE TABLE `ScanIn` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
         await pool.query("CREATE TABLE `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
         await pool.query("CREATE TABLE `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
@@ -46,10 +47,10 @@ export async function CreateTables()
 
 
 //Query For Registering Users
-export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:string,Email:string,Major:string,Password:string,StudentID:string,Code:string): Promise<any> { //This function needs to be await as we are accessing a database resource
+export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:string,Email:string,Major:string,Password:string,StudentID:string,Code:string,Date:string): Promise<any> { //This function needs to be await as we are accessing a database resource
     let response;
     try {
-        response = await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,StudentID,QRCode) VALUES (?,?,?,Date(?),?,?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,StudentID,Code]); //.query returns a "query packet", which you assign to arrays. 
+        response = await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,StudentID,QRCode) VALUES (?,?,?,Date(?),?,?,?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,StudentID,Code,Date]); //.query returns a "query packet", which you assign to arrays. 
         return {"success":true,"message": response + ": Registered New User"};
     }
     catch(err){
@@ -108,6 +109,7 @@ export async function SendVerificationEmail(Email:string)
             subject: "Email Verification Code",
             text: `Thank you for your interest in the makerspace. To complete the registration process, enter the following code with your information on the registration page: ${verificationcode}. Thank you for joining the Makerspace!`
           };
+          await transporter.sendMail(mailOptions);
     }
     catch(err)
     {
@@ -229,6 +231,40 @@ export async function ValidateVerificationCode(req:Request,res:Response,next:Nex
 
 
     next();
+}
+
+export async function CountUsers(timeframe:number) 
+{
+    let amount;
+    try{
+        switch(timeframe)
+        {
+            
+            case 24: //1 day
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '1 day'`);
+                break;
+            case 7: //7 days
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '1 week`);
+                break;
+            case 30: //30 days
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '1 month'`);
+                break;
+            default: //6 Months
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '6 months'`);
+        }
+        return amount;
+    }
+    catch (err)
+    {
+        return Error("Error in Getting User Count" + err);
+    }
+}
+
+export async function getReservations(timeRange) {
+    const query = `SELECT DeviceID, DeviceName, COUNT(*) AS count FROM ReservationHistory WHERE StartTime >= NOW() - INTERVAL ? DAY GROUP BY DeviceID, DeviceName`;
+        const [rows] = await pool.query(query, [timeRange]);
+        return rows;
+    
 }
 
 /*We are not using this rn

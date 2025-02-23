@@ -1,7 +1,7 @@
 import express, { Express, Request, Response } from "express";
-import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, SendVerificationEmail,ValidateVerificationCode,GetQRCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
-import {SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
+import {calculateTotal, SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
 import request from 'supertest';
 import cookieParser from 'cookie-parser';
@@ -47,7 +47,7 @@ app.get("/inittables", (req: Request, res: Response): void => {
     res.send("Get Method");
 });
 
-app.get("/getqrcode",ValidateToken,(req:Request,res:Response) => 
+app.get("/getqrcode",ValidateToken, (req:Request,res:Response) => 
 {
     let AccountID = req.body.userId; //User can only get a token if the email is exists in the system. This is the only source of error
     let QueryResponse:any = GetQRCode(AccountID);
@@ -60,6 +60,65 @@ app.get("/getqrcode",ValidateToken,(req:Request,res:Response) =>
         return res.status(200).send({"success": true, "message": "QRCode Retreived!", "qrcode":QueryResponse[0].QRCode});
     }
  
+});
+
+app.get("/getStats",ValidateToken, SetPermissions, async (req:Request,res:Response) =>
+{
+    let pday;
+    let pweek;
+    let pmonth;
+    let p6month;
+    let data = {};
+    if(req.body.admin)//If Admin Makes request...
+    {
+        try{
+            pday = await CountUsers(24);
+            pweek = await CountUsers(7);
+            pmonth = await CountUsers(30);
+            p6month = await CountUsers(100);
+        }catch(err)
+        {
+            res.status(401).send({"Success": false, "Message": "Error in Returning Number of Users" + err })
+        }
+        Object.assign(data,{"newUsers": {"past24h": pday,"past7d": pweek,"past30d": pmonth,"past6m": p6month}});
+        try {
+            // Get reservations for each time range
+             pday = await getReservations(1);
+             pweek = await getReservations(7);
+             pmonth = await getReservations(30);
+             p6month = await getReservations(180);
+          } catch (err) {
+            res.status(401).send({"Success": false, "Message": "Error in Returning Reservations of Users" + err });
+          }
+          Object.assign(data,{"reservationsMade": {
+            past24h: {
+              devices: pday,
+              total: calculateTotal(pday),
+            },
+            past7d: {
+              devices: pweek,
+              total: calculateTotal(pweek),
+            },
+            past30d: {
+              devices: pmonth,
+              total: calculateTotal(pmonth),
+            },
+            past6m: {
+              devices: p6month,
+              total: calculateTotal(p6month),
+            },
+          }});
+          try {
+            // Get reservations for each time range
+             pday = await getReservations(1);
+             pweek = await getReservations(7);
+             pmonth = await getReservations(30);
+             p6month = await getReservations(180);
+          } catch (err) {
+            res.status(401).send({"Success": false, "Message": "Error in Returning Number of Users" + err });
+          }
+
+    }
 });
 
 //-------------------------------------------------------------
@@ -156,7 +215,8 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),Sanati
     {*/
     let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
     let token = SignToken(AccountID,'1h').toString().substring(0,40);
-    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID,token); //Accessing said resource, so we need to wait for a responses
+    const currentDate = new Date().toISOString(); //Timestamps when the request comes in, or whenever a code is scanned
+    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID,token,currentDate); //Accessing said resource, so we need to wait for a responses
     
     if(response instanceof Error)
     {
