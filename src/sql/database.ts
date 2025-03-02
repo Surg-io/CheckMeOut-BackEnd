@@ -14,6 +14,21 @@ const pool = mysql.createPool({  //You can go without the .promise(). If you ini
 }).promise();
 
 
+//---------------For Testing----------------
+export async function GetTableRows()
+{
+    try{
+        const [rows] = await pool.query(`Select * from scanhistory`)
+        return rows;
+    }
+    catch(err)
+    {
+        return Error("Error: "+ err);
+    }
+    
+}
+//-------------------------------------------
+
 //---------------Table Queries------------------------
 export async function CreateTableScripts()
 {
@@ -40,16 +55,18 @@ END$$
 DELIMITER ;`);
 }
 
+
+
 export async function CreateTables()
 {
     try {
-        //await pool.query("DROP TABLE IF EXISTS `Reservations`, `ReservationHistory`, `ScanHistory`, `ScanIn`, `Students`,`RegistrationVerificationCodes`,`Admins`");
+        await pool.query("DROP TABLE IF EXISTS `Reservations`, `ReservationHistory`, `ScanHistory`, `ScanIn`, `Students`,`RegistrationVerificationCodes`,`Admins`");
         //For Testing Purposes only...Delete ^ When we actually deploy
         await pool.query("CREATE TABLE IF NOT EXISTS `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `StudentID` int (9) NOT NULL, `QRCode` varchar(50) NOT null, `Created` datetime not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`),UNIQUE `StudentID` (`StudentID`), UNIQUE `EMAIL` (`EMAIL`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `ScanIn` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
         await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
-        await pool.query("CREATE TABLE IF NOT EXISTS `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL,FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL)");
         await pool.query("CREATE TABLE IF NOT EXISTS `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` int(9), Primary Key(`Email`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Admins` (`Email` varchar(100) NOT NULL, `Password` varchar(50) NOT NULL, Primary Key(`Email`))");
         console.log("Created Tables");
@@ -108,12 +125,10 @@ export async function SendVerificationEmail(Email:string)
     let isthereError = false;
     let errormsg;
     let verificationcode = Math.random().toString().substring(2,8);
-    
-   
     try
     {
         //Deletes the Email if it Exists Already
-        await pool.query(`DELETE FROM RegistrationVerificationCodes Where Email id = ?`, Email);
+        await pool.query(`DELETE FROM RegistrationVerificationCodes Where Email = ?`, Email);
         await pool.query(`Insert into RegistrationVerificationCodes (Email, Code) VALUES (?,?)`,[Email,verificationcode]);
         console.log("Query Send");
     }
@@ -159,7 +174,7 @@ export async function SendVerificationEmail(Email:string)
     else
     {
         console.log("Returning Success Statement");
-        return {"status":true, "message":"Verification Information Sent and Logged Successfully"};
+        return {"success":true, "message":"Verification Information Sent and Logged Successfully"};
     }
 }
 //----------------Select Queries----------------------
@@ -284,7 +299,7 @@ export async function CountUsers(timeframe:number)
     }
 }
 
-export async function getReservations(timeRange: number) {
+export async function getNumReservations(timeRange: number) {
     const query = `SELECT DeviceID, DeviceName, COUNT(*) AS count FROM ReservationHistory WHERE StartTime >= NOW() - INTERVAL ? DAY GROUP BY DeviceID, DeviceName`;
         const [rows] = await pool.query(query, [timeRange]);
         return rows;
@@ -319,6 +334,32 @@ export async function getPeakTime(timeRange:number) {
     }
     return null;
   } 
+
+  export async function getCurrentReservations(query: string)
+  {
+    try
+    {
+        let [rows] = await pool.query(query);
+        return rows;
+    }
+    catch(err)
+    {
+        return Error("Error in Current Reservation Query: "+ err);
+    }
+  }
+
+  export async function CancelReservation(query:string)
+  {
+    try
+    {
+        await pool.query(query);
+        return true;
+    }
+    catch(err)
+    {
+        return Error("Error in Cancelling Reservation: " + err);
+    }
+  }
 
 /*We are not using this rn
 export async function GetUserId (first_name: string, last_name: string, major: string, student_id: string) { // get all student info for using in the frontend when needed??

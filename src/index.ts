@@ -1,5 +1,5 @@
 import express, { Express, Request, Response } from "express";
-import {ReturnDates, CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates,GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
 import {calculateTotal, SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
@@ -10,6 +10,8 @@ import { Query } from "mysql2/typings/mysql/lib/protocol/sequences/Query.js";
 import { QueryResult } from "mysql2";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { Sign } from "crypto";
+import { validateHeaderName } from "http";
+import { stat } from "fs";
 dotenv.config();
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
@@ -47,6 +49,15 @@ app.get("/inittables", (req: Request, res: Response): void => {
     res.send("Get Method");
 });
 
+app.get("/testtables", async (req: Request, res: Response) => {
+    let rows:any = await GetTableRows();
+    if(rows instanceof Error)
+    {
+        return res.status(401).send(rows.message);
+    }
+    return res.send(rows);
+});
+//-------------------------------------------------------------
 app.get("/getqrcode",ValidateToken, (req:Request,res:Response) => 
 {
     let AccountID = req.body.userId; //User can only get a token if the email is exists in the system. This is the only source of error
@@ -83,10 +94,10 @@ app.get("/getStats",ValidateToken, SetPermissions, async (req:Request,res:Respon
         Object.assign(data,{"newUsers": {"past24h": pday,"past7d": pweek,"past30d": pmonth,"past6m": p6month}});
         try {
             // Get reservations for each time range
-             pday = await getReservations(1);
-             pweek = await getReservations(7);
-             pmonth = await getReservations(30);
-             p6month = await getReservations(180);
+             pday = await getNumReservations(1);
+             pweek = await getNumReservations(7);
+             pmonth = await getNumReservations(30);
+             p6month = await getNumReservations(180);
           } catch (err) {
             res.status(401).send({"Success": false, "Message": "Error in Returning Reservations of Users" + err });
           }
@@ -123,13 +134,29 @@ app.get("/getStats",ValidateToken, SetPermissions, async (req:Request,res:Respon
             pweek = await getPeakTime(7 * 24);
           } catch (error) {
             console.error('Error fetching peak time:', error);
-            res.status(500).json({ error: 'Internal Server Error' });
+            return res.status(500).json({ error: 'Internal Server Error' });
           }
           Object.assign(data,{"peakTime": {"past24h": pday,"past7d":pweek}});
-          res.status(200).json(data);
+          return res.status(200).json(data);
     }
     
 });
+
+app.get("/getuserreservations",ValidateToken, SetPermissions, async (req:Request, res:Response) => 
+{
+    let query = 'Select * from Reservations';
+    if(!req.body.admin) //If Admin isn't calling....
+    {   
+        query += `WHERE AccountID = ${req.body.userId}`;
+    }
+    let rows:any = await getCurrentReservations(query);
+    if(rows instanceof Error)
+    {
+        return res.status(500).send({"success": false, "message": "Error in returning Reservations: " + rows.message});
+    }
+    return res.status(200).send({"success": true, "message": "Success in returning rows!", "Reservations": rows });
+});
+
 
 //-------------------------------------------------------------
 
@@ -160,7 +187,7 @@ app.post("/login", SanatizeInput("Username","E"), async (req:Request,res:Respons
             //Adjust Message to reflect States
             ReturnMessage.success = true; 
             ReturnMessage.message = "Login Successful";
-            let payload = {"exp": "1h"};
+            let payload = {"exp": "3600"};
             if (admin)
             {
                 Object.assign(payload, {"permissions": 524287}); //Admin Permissions and payload info
@@ -202,11 +229,10 @@ app.post("/refreshtoken", async (req:Request, res:Response) => {
 app.post("/getregistercode", SanatizeInput("Email","E"), async (req:Request,res:Response) =>{
     console.log("Post Request");
     let EmailResponse =  await SendVerificationEmail(req.body.Email);
-
     if (EmailResponse instanceof Error)
     {
         console.log("Error");
-        return res.status(401).send({"status":"Failed","message":EmailResponse.message});
+        return res.status(401).send({"success":false,"message":EmailResponse.message});
     }
     else
     {
@@ -228,7 +254,7 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),Sanati
     else
     {*/
     let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
-    let token = SignToken(AccountID,'1h').toString().substring(0,40);
+    let token = SignToken(AccountID,3600).toString().substring(0,40); //This is for the QR Code
     const currentDate = new Date().toISOString(); //Timestamps when the request comes in, or whenever a code is scanned
     let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID,token,currentDate); //Accessing said resource, so we need to wait for a responses
     
@@ -341,11 +367,11 @@ app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: 
     else //If User is Calling...
     {
         let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
-        query += `where AccountID = ${req.body.AccountID}`
+        query += `where AccountID = ${req.body.userId}`
         query += ' Order DESCENDING by checkin';
         //Return Histories between time period where the ID matches their own ID
         let query2 = `select * from ReservationHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
-        query2 += `where AccountID = ${req.body.AccountID}`
+        query2 += `where AccountID = ${req.body.userId}`
         query2 += ' Order DESCENDING by StartTime';
         
         let scanhistory: any = await checkinhistory(query); 
@@ -367,8 +393,25 @@ app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: 
 });
 
 //*Cancel Reservation
-
-//app.post("/cancelReservation",)
+app.post("/cancelReservation",ValidateToken,SetPermissions,async (req:Request, res:Response) => 
+{
+    let query = `Delete from Reservations WHERE ReservationID = ${req.body.recordId}`
+    let response:any;
+    if(req.body.admin) //If an Admin is cancelling Reservation
+    {   
+        response = await CancelReservation(query);
+    }
+    else //If user is cancelling Reservation
+    {
+        //As we are only allowing the user to see reservations they have, we can assume, for now, that they will only make cancelations for reservations they have. Change this later...
+        response = await CancelReservation(query);
+    }
+    if(response instanceof Error)
+    {
+        return res.status(500).send({"success":true, "message": response.message});
+    }
+    return res.status(200).send({"success":true, "message": "Reservation Cancelled"});
+});
 
 
 
