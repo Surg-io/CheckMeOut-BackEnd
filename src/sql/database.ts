@@ -258,7 +258,9 @@ export async function ValidateVerificationCode(req:Request,res:Response,next:Nex
 {
     let rows : any;
     try{
-        [rows] =  await pool.query(`SELECT Code from RegistrationVerificationCodes WHERE EMAIL = ?`,[req.body.Email]);//Get the code based on the email provided by the user
+        console.log("Verifying...");
+        console.log(req.body.Email);
+        [rows] =  await pool.query(`SELECT Code from registrationverificationcodes WHERE EMAIL = ?`,[req.body.Email]);//Get the code based on the email provided by the user
     }
     catch (err) {
         return res.status(401).send({"success": false, "message": "Error in retreiving Verification Code for User " + err});
