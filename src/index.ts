@@ -1,5 +1,5 @@
 import express, { Express, Request, Response } from "express";
-import {ReturnDates, CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates, CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
 import {calculateTotal, SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
@@ -118,8 +118,17 @@ app.get("/getStats",ValidateToken, SetPermissions, async (req:Request,res:Respon
             res.status(401).send({"Success": false, "Message": "Error in Returning Number of Users" + err });
           }
           Object.assign(data,{"checkinsMade": {"past24h": pday,"past7d": pweek,"past30d": pmonth,"past6m": p6month}});
-
+          try {
+            pday = await getPeakTime(24);
+            pweek = await getPeakTime(7 * 24);
+          } catch (error) {
+            console.error('Error fetching peak time:', error);
+            res.status(500).json({ error: 'Internal Server Error' });
+          }
+          Object.assign(data,{"peakTime": {"past24h": pday,"past7d":pweek}});
+          res.status(200).json(data);
     }
+    
 });
 
 //-------------------------------------------------------------
