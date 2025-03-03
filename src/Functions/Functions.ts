@@ -3,13 +3,13 @@ import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
 import dotenv from 'dotenv';
 import { NextFunction } from "express";
+import { AnyARecord } from "dns";
 dotenv.config(); // Load environment variables from .env file
 //---------------Sign Token-------------------
-export async function SignToken(Information:Object, time:any): Promise<any> //All we need to do is create the token. The frontend should be sending it under the "Authorization" Header
+export async function SignToken(Information:Object, time:any): Promise<string> //All we need to do is create the token. The frontend should be sending it under the "Authorization" Header
 {
-    let payload : Object = Information;
     let Secretcode: any = process.env.JWT_secret; //Need to seperate it as ts doesn't allow direct insertion...
-    const token = jwt.sign(payload, Secretcode ,{expiresIn: time}); 
+    let token = jwt.sign(Information, Secretcode ,{expiresIn: time}); 
     return token;
 }
 

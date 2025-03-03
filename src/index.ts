@@ -44,8 +44,8 @@ app.get("/", (req: Request, res: Response): void => {
 });
 
 //*Following few Queries initialize a mysql table for testing..
-app.get("/inittables", (req: Request, res: Response): void => {
-    CreateTables();
+app.get("/inittables", async (req: Request, res: Response) => {
+    await CreateTables();
     res.send("Get Method");
 });
 
@@ -56,6 +56,11 @@ app.get("/testtables", async (req: Request, res: Response) => {
         return res.status(401).send(rows.message);
     }
     return res.send(rows);
+});
+
+app.get("/testtoken", async (req: Request, res: Response) => {
+    let payload = {"load":123}
+    return res.send({"token": (await SignToken(payload,'1h')).toLocaleLowerCase().substring(0,30)});
 });
 //-------------------------------------------------------------
 app.get("/getqrcode",ValidateToken, (req:Request,res:Response) => 
@@ -254,10 +259,10 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),Sanati
     else
     {*/
     let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
-    let token = SignToken(AccountID,"1h").toString().substring(0,40); //This is for the QR Code
-    const currentDate = new Date().toISOString(); //Timestamps when the request comes in, or whenever a code is scanned
-    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID,token,currentDate); //Accessing said resource, so we need to wait for a responses
-    
+    let token = (await SignToken({"userId": AccountID},'1h')).toLocaleLowerCase().substring(0,30);  //This is for the QR Code
+    console.log(token);
+     //Timestamps when the request comes in, or whenever a code is scanned
+    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,req.body.StudentID,token,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " ")); //Accessing said resource, so we need to wait for a responses
     if(response instanceof Error)
     {
         return res.status(401).send({"success":false,"message": "Verification code was successful, but there was an error: " + response.message}); //Sends the Error

@@ -7,10 +7,12 @@ dotenv.config();
 
 // ~MYSQL Databasse Connection~
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
-    host: process.env.MYSQL_HOST,
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    database: process.env.MYSQL_DATABASE
+    host: '127.0.0.1',
+    user: "root",
+    password: "root",
+    database: "makerspacedb",
+    port: 3306, // Default MySQL port
+    connectTimeout: 5000 // 5 seconds
 }).promise();
 
 
@@ -62,7 +64,7 @@ export async function CreateTables()
     try {
         await pool.query("DROP TABLE IF EXISTS `Reservations`, `ReservationHistory`, `ScanHistory`, `ScanIn`, `Students`,`RegistrationVerificationCodes`,`Admins`");
         //For Testing Purposes only...Delete ^ When we actually deploy
-        await pool.query("CREATE TABLE IF NOT EXISTS `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `StudentID` int (9) NOT NULL, `QRCode` varchar(50) NOT null, `Created` datetime not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`),UNIQUE `StudentID` (`StudentID`), UNIQUE `EMAIL` (`EMAIL`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `QRCode` varchar(50) NOT null, `Created` DATETIME not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`), UNIQUE `EMAIL` (`EMAIL`))"); //`StudentID` int (9) NOT NULL UNIQUE `StudentID` (`StudentID`)
         await pool.query("CREATE TABLE IF NOT EXISTS `ScanIn` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
         await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int DEFAULT NULL,`DeviceName` varchar(20) DEFAULT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
@@ -84,7 +86,7 @@ export async function CreateTables()
 export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:string,Email:string,Major:string,Password:string,StudentID:string,Code:string,Date:string): Promise<any> { //This function needs to be await as we are accessing a database resource
     let response;
     try {
-        response = await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,StudentID,QRCode) VALUES (?,?,?,Date(?),?,?,?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,StudentID,Code,Date]); //.query returns a "query packet", which you assign to arrays. 
+        response = await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,QRCode, Created) VALUES (?,?,?,Date(?),?,?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,Code,Date]); //.query returns a "query packet", which you assign to arrays. 
         return {"success":true,"message": response + ": Registered New User"};
     }
     catch(err){
@@ -265,6 +267,7 @@ export async function ValidateVerificationCode(req:Request,res:Response,next:Nex
     catch (err) {
         return res.status(401).send({"success": false, "message": "Error in retreiving Verification Code for User " + err});
     }
+    console.log(rows)
     if(!(rows[0].Code === req.body.Code)) //If verification code is not the same as the one we have in the DB for that given email
     {
         return res.status(401).send({"success": false, "message": "Verification Code is not valid for this email"});
