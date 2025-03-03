@@ -7,10 +7,10 @@ dotenv.config();
 
 // ~MYSQL Databasse Connection~
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
-    host: '127.0.0.1',
-    user: "root",
-    password: "root",
-    database: "makerspacedb",
+    host: process.env.MYSQL_HOST,
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
     port: 3306, // Default MySQL port
     connectTimeout: 5000 // 5 seconds
 }).promise();
