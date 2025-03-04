@@ -1,5 +1,5 @@
-import express, { Express, Request, Response } from "express";
-import {ReturnDates,GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import express, { Express, query, Request, Response } from "express";
+import {ReturnDates, CreateDB, CreateDevice,GetReports, SubmitReport, GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations, GetDevices} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
 import {calculateTotal, SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
@@ -32,6 +32,7 @@ app.use("/registeruser",(req, res, next) => { //Function will configure the CORS
     next(); //Sends control to the next call back function for /registeruser
 });
 
+
 //----------------Initialization for Testing------------------
 app.get("/env", (req: Request, res: Response): void => {
     console.log('Secret from .env:', process.env.Secret);
@@ -45,6 +46,7 @@ app.get("/", (req: Request, res: Response): void => {
 
 //*Following few Queries initialize a mysql table for testing..
 app.get("/inittables", async (req: Request, res: Response) => {
+    await CreateDB();
     await CreateTables();
     res.send("Get Method");
 });
@@ -162,6 +164,35 @@ app.get("/getuserreservations",ValidateToken, SetPermissions, async (req:Request
     return res.status(200).send({"success": true, "message": "Success in returning rows!", "Reservations": rows });
 });
 
+//Return All the Reports in a 3 Month Period...
+app.get("/getreport", ValidateToken, SetPermissions,  async (req:Request,res:Response) => //ValidateToken, SetPermissions, removed for testing...
+{
+    let queryresponse = await GetReports(30); //This could work...?
+    console.log(queryresponse);
+    if (queryresponse instanceof Error)
+    {
+        return res.status(500).send({"success": false, "message": queryresponse.message})
+    }
+    else
+    {
+        return res.status(200).send({"success":true,"message":"Report Return Successful", "Reports": queryresponse})
+    }
+});
+
+//Get the Devices in the DB
+app.get("/getdevice",ValidateToken, SetPermissions, async (req:Request,res:Response) => 
+{
+    let queryresponse = await GetDevices();
+    console.log(queryresponse);
+    if (queryresponse instanceof Error)
+    {
+        return res.status(500).send({"success": false, "message": queryresponse.message})
+    }
+    else
+    {
+        return res.status(200).send({"success":true,"message":"Devices Return Successful", "Reports": queryresponse})
+    }
+});
 
 //-------------------------------------------------------------
 
@@ -413,13 +444,37 @@ app.post("/cancelReservation",ValidateToken,SetPermissions,async (req:Request, r
     }
     if(response instanceof Error)
     {
-        return res.status(500).send({"success":true, "message": response.message});
+        return res.status(500).send({"success":false, "message": response.message});
     }
     return res.status(200).send({"success":true, "message": "Reservation Cancelled"});
 });
 
+//*Submitting Reports (USER ENDPOINT ONLY)
+app.post("/report", ValidateToken, async (req:Request,res:Response) =>  //ValidateToken is removed for Testing...
+{
+    let queryresponse = await SubmitReport(req.body.Type,new Date(req.body.Time).toISOString().slice(0, 19).replace("T", " "),req.body.DeviceID,req.body.DeviceName,req.body.Description);
+    if(queryresponse instanceof Error)
+    {
+        return res.status(500).send({"success": false, "message":queryresponse.message});
+    }
+    else
+    {
+        return res.status(200).send({"success":true, "message": "Report Submitted"});
+    }
+});
 
-
+app.post("/createdevice",async (req:Request,res:Response) => //ValidateToken,SetPermissions,
+{   
+    let queryresponse = await CreateDevice(req.body.DeviceName,req.body.Description);
+    if(queryresponse instanceof Error)
+    {
+        return res.status(500).send({"success": false, "message":queryresponse.message});
+    }
+    else
+    {
+        return res.status(200).send({"success":true, "message": "Device Added"});
+    }
+});
 
 //Non-Promise Based Post Request
 /*app.post("/registeruser",  (req: Request, res: Response): void => { //This function is async as we have a function inside that is accessing a resource. 
