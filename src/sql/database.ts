@@ -10,7 +10,7 @@ dotenv.config();
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
+    password: 'Makerspace!@#',
     database: process.env.MYSQL_DATABASE,
     port: 3306, // Default MySQL port
     connectTimeout: 5000 // 5 seconds
@@ -30,6 +30,30 @@ export async function GetTableRows()
     }
     
 }
+
+//---For Testing----------------
+/*
+export async function CreateTables()
+{
+    try {
+        await pool.query("DROP TABLE IF EXISTS `Reservations`, `ReservationHistory`, `ScanHistory`, `ScanIn`, `Students`,`RegistrationVerificationCodes`,`Admins`, `Reports`,`Devices`");
+        //For Testing Purposes only...Delete ^ When we actually deploy
+        await pool.query("Create TABLE IF NOT EXISTS `Reports` (`ReportID` int NOT NULL AUTO_INCREMENT, `Type` varchar(30) NOT NULL, `Time` DATETIME NOT NULL, `DeviceID` int not null, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250) NOT NULL, PRIMARY KEY (`ReportID`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Devices` (`DeviceID` int AUTO_INCREMENT, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250), PRIMARY KEY (`DeviceID`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `QRCode` varchar(50) NOT null, `Created` DATETIME not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`), UNIQUE `EMAIL` (`EMAIL`))"); //`StudentID` int (9) NOT NULL UNIQUE `StudentID` (`StudentID`)
+        await pool.query("CREATE TABLE IF NOT EXISTS `ScanIn` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL)");
+        await pool.query("CREATE TABLE IF NOT EXISTS `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` int(9), Primary Key(`Email`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Admins` (`Email` varchar(100) NOT NULL, `Password` varchar(50) NOT NULL, Primary Key(`Email`))");
+        console.log("Created Tables");
+    }
+    catch(err){
+        console.log("Error in creating tables: " + err);
+    }  
+}
+    */
 //-------------------------------------------
 
 //---------------Table Initialization Queries------------------------
@@ -95,11 +119,13 @@ export async function CreateTables()
 }
 
 
+
+
 //--------------Insert Queries------------------------
 
 
 //Query For Registering Users
-export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:string,Email:string,Major:string,Password:string,StudentID:string,Code:string,Date:string): Promise<any> { //This function needs to be await as we are accessing a database resource
+export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:string,Email:string,Major:string,Password:string,Code:string,Date:string): Promise<any> { //This function needs to be await as we are accessing a database resource
     let response;
     try {
         response = await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,QRCode, Created) VALUES (?,?,?,Date(?),?,?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,Code,Date]); //.query returns a "query packet", which you assign to arrays. 
