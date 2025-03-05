@@ -202,17 +202,19 @@ app.get("/getdevice",ValidateToken, SetPermissions, async (req:Request,res:Respo
 app.post("/login", SanatizeInput("Username","E"), async (req:Request,res:Response) => 
 {
     let {Username, Password} = req.body; //Parse Request
-    let QueryResponse: any = await RetreivePassword(Username,0); //Check to see if the logging in is coming from an Admin   
-    let admin = true;
-    if(QueryResponse.length === 0) //If its null(If it returns nothing)
+    let QueryResponse: any = await RetreivePassword(Username,1); //Check to see if the logger is a User
+    if(QueryResponse instanceof Error) //If Query is an Error
+        return res.status(401).send(QueryResponse.message);
+    let admin = false;
+    if(QueryResponse.length === 0) //If nothing is returned, check to see if the logger is an Admin
     {
-        QueryResponse = await RetreivePassword(Username,1); //We require this so we can index Query Response Later On...
-        admin = false;
+        QueryResponse = await RetreivePassword(Username,0); 
+        admin = true;
     }
     let ReturnMessage = {"success": false, "message": "Invalid Password or Email"};
     if(QueryResponse instanceof Error) //If Query is an Error
         return res.status(401).send(QueryResponse.message);
-    if(QueryResponse.length === 0) //If the Query doesn't return anything, then wrong Email
+    if(QueryResponse.length === 0) //If the Query is still nothing after checking admin and user, return Wrong Email or Password
     {
         return res.status(402).send(ReturnMessage);
     }
@@ -236,7 +238,7 @@ app.post("/login", SanatizeInput("Username","E"), async (req:Request,res:Respons
             Object.assign(ReturnMessage, {"token": token}); //Appends to the previously defined object
             return res.status(200).send(ReturnMessage);
         }
-        else //If Passwords don't match, return Error 
+        else //If Passwords don't match, return Error. Mismatched Password
         {
             return res.status(402).send(ReturnMessage);
         }
@@ -293,7 +295,7 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),Sanati
     let token = (await SignToken({"userId": AccountID},'1h')).toLocaleLowerCase().substring(-30);  //This is for the QR Code
     console.log(token);
      //Timestamps when the request comes in, or whenever a code is scanned
-    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(-40).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,token,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " ")); //Accessing said resource, so we need to wait for a responses
+    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0,19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,token,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " ")); //Accessing said resource, so we need to wait for a responses
     if(response instanceof Error)
     {
         return res.status(401).send({"success":false,"message": "Verification code was successful, but there was an error: " + response.message}); //Sends the Error
