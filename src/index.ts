@@ -292,7 +292,7 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),Sanati
     else
     {*/
     let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
-    let token = (await SignToken({"userId": AccountID},'1h')).toLocaleLowerCase().substring(-30);  //This is for the QR Code
+    let token = (await SignToken({"userId": AccountID},'1h')).toLocaleLowerCase().slice(-30);  //This is for the QR Code
     console.log(token);
      //Timestamps when the request comes in, or whenever a code is scanned
     let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0,19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,token,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " ")); //Accessing said resource, so we need to wait for a responses
