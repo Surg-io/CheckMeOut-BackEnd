@@ -20,7 +20,7 @@ export async function ValidateToken(req:Request, res:Response, next:NextFunction
     //const authHeader = req.headers["Authorization"];
     const token = authHeader && authHeader.split(' ')[1]; // Format: "Authorization": "Bearer <token>". Token is gotten if it exists, hence logical and
     if (!token) {
-      return res.status(400).send({ message: 'Access denied. No token provided.' });
+      return res.status(400).send({ "success": false, "message": 'Access denied. No token provided.' });
     }
     try {
       let Secretcode: any = process.env.JWT_secret;
@@ -28,7 +28,7 @@ export async function ValidateToken(req:Request, res:Response, next:NextFunction
       Object.assign(req.body, payload); // Attach the payload to req.body
       next(); // Proceed to the next middleware or route handler
     } catch (err) {
-      return res.status(400).send({ message: 'Invalid or expired token.' });
+      return res.status(400).send({"success":false,  "message": 'Invalid or expired token.' });
     }
 }
 
@@ -68,7 +68,7 @@ export function SanatizeInput(field:string, type:string) {
     }
 
     if (!isValid) {
-        return res.status(400).send(`Invalid ${field}: Does not match requirements`);
+        return res.status(400).send({"success":false, "message":`Invalid ${field}: Does not match requirements`});
     }
     next();
 };

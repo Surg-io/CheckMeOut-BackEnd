@@ -373,7 +373,7 @@ export async function CountUsers(timeframe:number)
         {
             
             case 24: //1 day
-            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED <= NOW() - INTERVAL '1 day'`);
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED <= NOW() - INTERVAL '1 day'`); //Amount doesn't need to be an array as it is a value
                 break;
             case 7: //7 days
             amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED <= NOW() - INTERVAL '1 week`);
@@ -402,7 +402,7 @@ export async function getNumReservations(timeRange: number) {
 export async function CountCheckIns(timeRange:number)
 {
     const query = `SELECT COUNT(*) FROM ScanHistory WHERE StartTime <= NOW() - INTERVAL ?`;
-    const rows = await pool.query(query, [timeRange]);
+    const rows = await pool.query(query, [timeRange]); //Rows doesn't need to be an array as it is a value
     return rows;
 }
 
