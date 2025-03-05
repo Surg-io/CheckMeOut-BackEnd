@@ -119,8 +119,6 @@ export async function CreateTables()
 }
 
 
-
-
 //--------------Insert Queries------------------------
 
 
@@ -267,7 +265,7 @@ export async function CreateDevice(Name:string,Description:string)
 
 //----------------Select Queries----------------------
 
-export async function GetQRCode(AccID:string)
+export async function GetQRCode(AccID:string) 
 {
     try{
         const [rows] = await pool.query(`SELECT QRCODE FROM STUDENTS WHERE ACCOUNTID = ?`, AccID); //Should only return one...
@@ -279,9 +277,16 @@ export async function GetQRCode(AccID:string)
     }
 }
 
-export async function GetUserData (): Promise<QueryResult> {
-    const [rows] = await pool.query("SELECT * FROM student");
+export async function GetUserData () {
+    try{
+        const [rows] = await pool.query("SELECT * FROM student");
     return rows;
+    }
+    catch(err)
+    {
+        return Error("Error in Returning QR Code: " + err);
+    }
+    
 }
 
 export async function ReturnDates (table:string, fullDate:string)
@@ -353,13 +358,10 @@ export async function ValidateVerificationCode(req:Request,res:Response,next:Nex
     catch (err) {
         return res.status(401).send({"success": false, "message": "Error in retreiving Verification Code for User " + err});
     }
-    console.log(rows)
-    if(!(rows[0].Code === req.body.Code)) //If verification code is not the same as the one we have in the DB for that given email
+    if(rows.length === 0 || !(rows[0].Code === req.body.Code)) //If verification code is not the same as the one we have in the DB for that given email
     {
         return res.status(401).send({"success": false, "message": "Verification Code is not valid for this email"});
     }
-
-
     next();
 }
 

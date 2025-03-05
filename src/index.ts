@@ -55,7 +55,7 @@ app.get("/testtables", async (req: Request, res: Response) => {
     let rows:any = await GetTableRows();
     if(rows instanceof Error)
     {
-        return res.status(401).send(rows.message);
+        return res.status(500).send(rows.message);
     }
     return res.send(rows);
 });
@@ -65,17 +65,17 @@ app.get("/testtoken", async (req: Request, res: Response) => {
     return res.send({"token": (await SignToken(payload,'1h')).toLocaleLowerCase().substring(0,30)});
 });
 //-------------------------------------------------------------
-app.get("/getqrcode",ValidateToken, (req:Request,res:Response) => 
+app.get("/getqrcode",ValidateToken, async (req:Request,res:Response) => 
 {
     let AccountID = req.body.userId; //User can only get a token if the email is exists in the system. This is the only source of error
-    let QueryResponse:any = GetQRCode(AccountID);
+    let QueryResponse:any =await GetQRCode(AccountID);
     if(QueryResponse instanceof Error)
     {
-        return res.status(401).send({"success": false, "message": QueryResponse.message, "qrcode":"Error"});
+        return res.status(500).send({"success": false, "message": QueryResponse.message, "qrcode":"Error"});
     }
     else
     {
-        return res.status(200).send({"success": true, "message": "QRCode Retreived!", "qrcode":QueryResponse[0].QRCode});
+        return res.status(200).send({"success": true, "message": "QRCode Retreived!", "qrcode":QueryResponse[0].QRcode});
     }
  
 });
@@ -96,7 +96,7 @@ app.get("/getStats",ValidateToken, SetPermissions, async (req:Request,res:Respon
             p6month = await CountUsers(100);
         }catch(err)
         {
-            res.status(401).send({"Success": false, "Message": "Error in Returning Number of Users" + err })
+            res.status(500).send({"Success": false, "Message": "Error in Returning Number of Users" + err })
         }
         Object.assign(data,{"newUsers": {"past24h": pday,"past7d": pweek,"past30d": pmonth,"past6m": p6month}});
         try {
@@ -106,7 +106,7 @@ app.get("/getStats",ValidateToken, SetPermissions, async (req:Request,res:Respon
              pmonth = await getNumReservations(30);
              p6month = await getNumReservations(180);
           } catch (err) {
-            res.status(401).send({"Success": false, "Message": "Error in Returning Reservations of Users" + err });
+            res.status(500).send({"Success": false, "Message": "Error in Returning Reservations of Users" + err });
           }
           Object.assign(data,{"reservationsMade": {
             past24h: {
@@ -133,7 +133,7 @@ app.get("/getStats",ValidateToken, SetPermissions, async (req:Request,res:Respon
              pmonth = await CountCheckIns(30);
              p6month = await CountCheckIns(180);
           } catch (err) {
-            res.status(401).send({"Success": false, "Message": "Error in Returning Number of Users" + err });
+            res.status(500).send({"Success": false, "Message": "Error in Returning Number of Users" + err });
           }
           Object.assign(data,{"checkinsMade": {"past24h": pday,"past7d": pweek,"past30d": pmonth,"past6m": p6month}});
           try {
@@ -204,7 +204,7 @@ app.post("/login", SanatizeInput("Username","E"), async (req:Request,res:Respons
     let {Username, Password} = req.body; //Parse Request
     let QueryResponse: any = await RetreivePassword(Username,1); //Check to see if the logger is a User
     if(QueryResponse instanceof Error) //If Query is an Error
-        return res.status(401).send(QueryResponse.message);
+        return res.status(500).send({"success":false, message: QueryResponse.message});
     let admin = false;
     if(QueryResponse.length === 0) //If nothing is returned, check to see if the logger is an Admin
     {
@@ -213,10 +213,10 @@ app.post("/login", SanatizeInput("Username","E"), async (req:Request,res:Respons
     }
     let ReturnMessage = {"success": false, "message": "Invalid Password or Email"};
     if(QueryResponse instanceof Error) //If Query is an Error
-        return res.status(401).send(QueryResponse.message);
+        return res.status(500).send({"success":false, message: QueryResponse.message});
     if(QueryResponse.length === 0) //If the Query is still nothing after checking admin and user, return Wrong Email or Password
     {
-        return res.status(402).send(ReturnMessage);
+        return res.status(401).send(ReturnMessage);
     }
     else //If we do get a response, compare...
     {
@@ -240,7 +240,7 @@ app.post("/login", SanatizeInput("Username","E"), async (req:Request,res:Respons
         }
         else //If Passwords don't match, return Error. Mismatched Password
         {
-            return res.status(402).send(ReturnMessage);
+            return res.status(401).send(ReturnMessage);
         }
     }
 });
@@ -270,7 +270,7 @@ app.post("/getregistercode", SanatizeInput("Email","E"), async (req:Request,res:
     if (EmailResponse instanceof Error)
     {
         console.log("Error");
-        return res.status(401).send({"success":false,"message":EmailResponse.message});
+        return res.status(500).send({"success":false,"message":EmailResponse.message});
     }
     else
     {
@@ -287,7 +287,7 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),Sanati
     /*
     if (!(SanatizeInput(req.body.FN,'N') && SanatizeInput(req.body.LN,'N') && SanatizeInput(req.body.Email,'E') && SanatizeInput(req.body.Password, 'P')))
     {
-        res.status(401).send(`Input doesn't match specified requirements...`);
+        res.status(500).send(`Input doesn't match specified requirements...`);
     }
     else
     {*/
@@ -298,7 +298,7 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),Sanati
     let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0,19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,token,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " ")); //Accessing said resource, so we need to wait for a responses
     if(response instanceof Error)
     {
-        return res.status(401).send({"success":false,"message": "Verification code was successful, but there was an error: " + response.message}); //Sends the Error
+        return res.status(500).send({"success":false,"message": "Verification code was successful, but there was an error: " + response.message}); //Sends the Error
     }
     else
     {
@@ -392,7 +392,7 @@ app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: 
         let returnmessage = {"success": false, "messasage": "Error in Returning Query"}
         if (scanhistory instanceof Error || reservationhistory instanceof Error)
         {
-            return res.status(401).send(returnmessage);
+            return res.status(500).send(returnmessage);
         }
         else
         {
@@ -417,7 +417,7 @@ app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: 
         let returnmessage = {"success": false, "messasage": "Error in Returning Query"}
         if (scanhistory instanceof Error || reservationhistory instanceof Error)
         {
-            return res.status(401).send(returnmessage);
+            return res.status(500).send(returnmessage);
         }
         else
         {
@@ -552,4 +552,3 @@ app.put("/", async (req: Request, res: Response): Promise<void> => {
 });
 */
     
-
