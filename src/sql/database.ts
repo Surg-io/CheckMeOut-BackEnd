@@ -270,7 +270,7 @@ export async function GetQRCode(AccID:string)
 {
     try{
         const [rows] :any  = await pool.query(`Select QRCode FROM Students WHERE AccountID = ?`, AccID); //Should only return one...
-        return rows[0].QRCode;
+        return rows[0].QRCODE;
     }
     catch(err)
     {
