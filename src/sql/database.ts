@@ -201,7 +201,7 @@ export async function SendVerificationEmail(Email:string)
             subject: "Email Verification Code",
             text: `Thank you for your interest in the makerspace. To complete the registration process, enter the following code with your information on the registration page: ${verificationcode}. Thank you for joining the Makerspace!`
           };
-          //await transporter.sendMail(mailOptions);
+          await transporter.sendMail(mailOptions);
     }
     catch(err)
     {
