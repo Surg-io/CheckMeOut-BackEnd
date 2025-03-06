@@ -10,7 +10,7 @@ dotenv.config();
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
+    password: 'root',//process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DATABASE,
     port: 3306, // Default MySQL port
     connectTimeout: 5000 // 5 seconds
@@ -100,7 +100,8 @@ export async function CreateDB()
 export async function CreateTables()
 {
     try {
-        await pool.query("DROP TABLE IF EXISTS `Reservations`, `ReservationHistory`, `ScanHistory`, `ScanIns`, `Students`,`RegistrationVerificationCodes`,`Admins`, `Reports`,`Devices`");
+        await pool.query("DROP TABLE IF EXISTS `ScanIns`, `Reservations`, `ReservationHistory`, `ScanHistory`, `RegistrationVerificationCodes`, `Admins`, `Reports`, `Devices`");
+        await pool.query("DROP TABLE IF EXISTS `Students`");
         //For Testing Purposes only...Delete ^ When we actually deploy
         await pool.query("Create TABLE IF NOT EXISTS `Reports` (`ReportID` int NOT NULL AUTO_INCREMENT, `Type` varchar(30) NOT NULL, `Time` DATETIME NOT NULL, `DeviceID` int not null, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250) NOT NULL, PRIMARY KEY (`ReportID`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Devices` (`DeviceID` int AUTO_INCREMENT, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250), PRIMARY KEY (`DeviceID`))");
