@@ -12,6 +12,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import { Sign } from "crypto";
 import { validateHeaderName } from "http";
 import { stat } from "fs";
+import { parseArgs } from "util";
 dotenv.config();
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
@@ -65,7 +66,7 @@ app.get("/testtoken", async (req: Request, res: Response) => {
     return res.send({"token": (await SignToken(payload,'1h')).toLocaleLowerCase().substring(0,30)});
 });
 //-------------------------------------------------------------
-app.get("/getqrcode",ValidateToken, async (req:Request,res:Response) => 
+app.get("/api/qrcode",ValidateToken, async (req:Request,res:Response) => 
 {
     let AccountID = req.body.userId; //User can only get a token if the email is exists in the system. This is the only source of error
     let QueryResponse:any =await GetQRCode(AccountID);
@@ -75,12 +76,12 @@ app.get("/getqrcode",ValidateToken, async (req:Request,res:Response) =>
     }
     else
     {
-        return res.status(200).send({"success": true, "message": "QRCode Retreived!", "qrcode":QueryResponse[0].QRcode});
+        return res.status(200).send({"success": true, "message": "QRcode Retreived!", "qrcode":QueryResponse[0].QRCODE});
     }
  
 });
 
-app.get("/getStats",ValidateToken, SetPermissions, async (req:Request,res:Response) =>
+app.get("/api/stats",ValidateToken, SetPermissions, async (req:Request,res:Response) =>
 {
     let pday;
     let pweek;
@@ -199,28 +200,30 @@ app.get("/getdevice",ValidateToken, SetPermissions, async (req:Request,res:Respo
 //------------------Post Requests-------------------
 
 //*User Sign In
-app.post("/login", SanatizeInput("Username","E"), async (req:Request,res:Response) => 
+app.post("/api/login", SanatizeInput("username","E"), SanatizeInput("password","P"),async (req:Request,res:Response) => 
 {
-    let {Username, Password} = req.body; //Parse Request
-    let QueryResponse: any = await RetreivePassword(Username,1); //Check to see if the logger is a User
+    let {username, password} = req.body; //Parse Request
+    console.log(username,password);
+    let QueryResponse: any = await RetreivePassword(username,1); //Check to see if the logger is a User
     if(QueryResponse instanceof Error) //If Query is an Error
         return res.status(500).send({"success":false, message: QueryResponse.message});
     let admin = false;
     if(QueryResponse.length === 0) //If nothing is returned, check to see if the logger is an Admin
     {
-        QueryResponse = await RetreivePassword(Username,0); 
+        QueryResponse = await RetreivePassword(username,0); 
+        if(QueryResponse instanceof Error) //If Query is an Error
+        return res.status(500).send({"success":false, message: QueryResponse.message});
         admin = true;
     }
-    let ReturnMessage = {"success": false, "message": "Invalid Password or Email"};
-    if(QueryResponse instanceof Error) //If Query is an Error
-        return res.status(500).send({"success":false, message: QueryResponse.message});
-    if(QueryResponse.length === 0) //If the Query is still nothing after checking admin and user, return Wrong Email or Password
+    let ReturnMessage = {"success": false, "message": "Invalid password or email"};
+    console.log(QueryResponse);
+    if(QueryResponse.length === 0) //If the Query is still nothing after checking admin and user, return Wrong email or password
     {
         return res.status(401).send(ReturnMessage);
     }
     else //If we do get a response, compare...
     {
-        if(QueryResponse[0].Password === Password) //If passwords match up...
+        if(QueryResponse[0].Password === password) //If passwords match up...
         {
             //Adjust Message to reflect States
             ReturnMessage.success = true; 
@@ -238,7 +241,7 @@ app.post("/login", SanatizeInput("Username","E"), async (req:Request,res:Respons
             Object.assign(ReturnMessage, {"token": token}); //Appends to the previously defined object
             return res.status(200).send(ReturnMessage);
         }
-        else //If Passwords don't match, return Error. Mismatched Password
+        else //If passwords don't match, return Error. Mismatched password
         {
             return res.status(401).send(ReturnMessage);
         }
@@ -264,38 +267,29 @@ app.post("/refreshtoken", async (req:Request, res:Response) => {
 });
 */
 
-app.post("/getregistercode", SanatizeInput("Email","E"), async (req:Request,res:Response) =>{
+app.post("/api/register-code", SanatizeInput("email","E"), async (req:Request,res:Response) =>{
     console.log("Post Request");
-    let EmailResponse =  await SendVerificationEmail(req.body.Email);
-    if (EmailResponse instanceof Error)
+    let emailResponse =  await SendVerificationEmail(req.body.email);
+    if (emailResponse instanceof Error)
     {
         console.log("Error");
-        return res.status(500).send({"success":false,"message":EmailResponse.message});
+        return res.status(500).send({"success":false,"message":emailResponse.message});
     }
     else
     {
         console.log("Success");
-        return res.status(200).send(EmailResponse);
+        return res.status(200).send(emailResponse);
     }
 });
 
 //*Registering Users
-app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),SanatizeInput("Email","E"),SanatizeInput("Password","P"), ValidateVerificationCode,async (req: Request, res: Response) => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
+app.post("/api/register-user", SanatizeInput("firstName","N"),SanatizeInput("lastName","N"),SanatizeInput("email","E"),SanatizeInput("password","P"), ValidateVerificationCode,async (req: Request, res: Response) => { //This function is async as we have a function inside that is accessing a resource. Function returns a void type of promise
     console.log(req.body);
-    //console.log(SanatizeInput(req.body.FN,'N') , SanatizeInput(req.body.LN,'N') , SanatizeInput(req.body.Email,'E') ,SanatizeInput(req.body.Password, 'P'));
-    //Adjust for newly created middleware 
-    /*
-    if (!(SanatizeInput(req.body.FN,'N') && SanatizeInput(req.body.LN,'N') && SanatizeInput(req.body.Email,'E') && SanatizeInput(req.body.Password, 'P')))
-    {
-        res.status(500).send(`Input doesn't match specified requirements...`);
-    }
-    else
-    {*/
-    let AccountID = req.body.FN[0] + req.body.LN[0] + Math.random().toString().substring(2,8) + req.body.Password.substring(2,5);
-    let token = (await SignToken({"userId": AccountID},'1h')).toLocaleLowerCase().slice(-30);  //This is for the QR Code
+    let AccountID = req.body.lastName[0] + req.body.firstName[0] + Math.random().toString().substring(2,8) + req.body.password.substring(2,5);
+    let token = (await SignToken({"userId": AccountID},'1h')).toLocaleLowerCase().slice(-30);  //This is for the QR code
     console.log(token);
      //Timestamps when the request comes in, or whenever a code is scanned
-    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.FN,req.body.LN,new Date(req.body.DOB).toISOString().slice(0,19).replace("T", " "),req.body.Email,req.body.Major,req.body.Password,token,new Date(req.body.DOB).toISOString().slice(0, 19).replace("T", " ")); //Accessing said resource, so we need to wait for a responses
+    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.firstName,req.body.lastName,new Date(req.body.dateOfBirth).toISOString().slice(0,19).replace("T", " "),req.body.email,req.body.major,req.body.password,token,new Date(req.body.dateOfBirth).toISOString().slice(0, 19).replace("T", " ")); //Accessing said resource, so we need to wait for a responses
     if(response instanceof Error)
     {
         return res.status(500).send({"success":false,"message": "Verification code was successful, but there was an error: " + response.message}); //Sends the Error
@@ -309,7 +303,7 @@ app.post("/registeruser", SanatizeInput("FN","N"),SanatizeInput("LN","N"),Sanati
 
 
 //*Making a reservation for a device
-app.post("/reserve", ValidateToken, async (req: Request, res: Response):Promise<void> => 
+app.post("/api/reserve", ValidateToken, async (req: Request, res: Response):Promise<void> => 
 {// We write the code with the intention that times are blocked between devices(2 Hour Increments, 3 Hour, etc.)
     let reservations = [];
     let status:string;
@@ -342,7 +336,7 @@ app.post("/reserve", ValidateToken, async (req: Request, res: Response):Promise<
 });
 
 //*Returns the reservations made for a certain date
-app.post("/searchdate", ValidateToken, async (req: Request,res: Response)  => {
+app.post("/search-date", ValidateToken, async (req: Request,res: Response)  => {
     let qreserved: any = await ReturnDevices("reservations",req.body.fullDate); //Get all the data, in order of Device ID;
     let devices = []; 
     let reservedtw = [];
@@ -351,19 +345,20 @@ app.post("/searchdate", ValidateToken, async (req: Request,res: Response)  => {
     {
         if(previd.deviceId == x.deviceId || previd.deviceId == -1)//Add the times and status
         {
-            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-GB").toString(),"endTime":x.endtime.toLocaleTimeString("en-GB").toString(), "resStatus":x.ResStatus});
+            reservedtw.push({"startTime": x.StartTime.toLocaleTimeString("en-GB").toString(),"endTime":x.EndTime.toLocaleTimeString("en-GB").toString(), "Status":x.ResStatus});
         }
         else //Upon encountering a new device, append the previous device with array of times, and start a new time array for the current device
         {
             devices.push({"deviceId": `${previd.deviceId}`, "deviceName":`${previd.deviceName}`, "timeWindows": JSON.parse(JSON.stringify(reservedtw))}); //There is only shallow copying in JS, so we need to deep copy
             reservedtw.length = 0;
-            reservedtw.push({"StartTime": x.starttime.toLocaleTimeString("en-GB").toString(),"EndTime":x.endtime.toLocaleTimeString("en-GB").toString(), "resStatus":x.ResStatus});
+            reservedtw.push({"startTime": x.StartTime.toLocaleTimeString("en-GB").toString(),"endTime":x.EndTime.toLocaleTimeString("en-GB").toString(), "status":x.ResStatus});
         }
         console.log(reservedtw.length)
         previd = x;
     }
     devices.push({"deviceId": `${previd.deviceId}`, "deviceName":`${previd.deviceName}`, "timeWindows": reservedtw}); //After the last entry is read, append the last entry along with its array. This doesn't need deep copy as its the most recent one
-    let response = {"selectedDate": `${req.body.year}-${req.body.month}-${req.body.day}`, "devices": devices};
+    let DateArray = new Date(req.body.fullDate).toLocaleDateString().split("/")
+    let response = {"selectedDate": `${DateArray[2]}-${DateArray[0]}-${DateArray[1]}`, "devices": devices}; //THIS NEEDS TESTING. Should be returning Year Month Day
     return res.send(response);
 });
 
@@ -480,9 +475,9 @@ app.post("/createdevice",async (req:Request,res:Response) => //ValidateToken,Set
 
 //Non-Promise Based Post Request
 /*app.post("/registeruser",  (req: Request, res: Response): void => { //This function is async as we have a function inside that is accessing a resource. 
-    console.log(req.body);    console.log(`${req.body.Email}`)
+    console.log(req.body);    console.log(`${req.body.email}`)
 
-    pool.query(`INSERT INTO studentuser (AccountID,FN,LN,EMAIL,MAJOR) VALUES (123456885,"sergio","man","pok@gmail.com","EFG")`,
+    pool.query(`INSERT INTO studentuser (AccountID,firstName,lastName,EMAIL,MAJOR) VALUES (123456885,"sergio","man","pok@gmail.com","EFG")`,
         (err) => {if (err)
         {
             return res.send(err);
@@ -521,7 +516,7 @@ request(app) //Tests this "app", which is the exported instance of the server
 
     
 
-//---------------Null Code---------------
+//---------------Null code---------------
 //In case we do account based...?(Put Statement)
 /*
 // register route, does it need any info? or will use the request body

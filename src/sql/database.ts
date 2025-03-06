@@ -10,7 +10,7 @@ dotenv.config();
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
-    password: 'Makerspace!@#',
+    password: 'root',
     database: process.env.MYSQL_DATABASE,
     port: 3306, // Default MySQL port
     connectTimeout: 5000 // 5 seconds
@@ -352,13 +352,13 @@ export async function ValidateVerificationCode(req:Request,res:Response,next:Nex
     let rows : any;
     try{
         console.log("Verifying...");
-        console.log(req.body.Email);
-        [rows] =  await pool.query(`SELECT Code from registrationverificationcodes WHERE EMAIL = ?`,[req.body.Email]);//Get the code based on the email provided by the user
+        console.log(req.body.email);
+        [rows] =  await pool.query(`SELECT Code from registrationverificationcodes WHERE EMAIL = ?`,[req.body.email]);//Get the code based on the email provided by the user
     }
     catch (err) {
         return res.status(401).send({"success": false, "message": "Error in retreiving Verification Code for User " + err});
     }
-    if(rows.length === 0 || !(rows[0].Code === req.body.Code)) //If verification code is not the same as the one we have in the DB for that given email
+    if(rows.length === 0 || !(rows[0].Code === req.body.code)) //If verification code is not the same as the one we have in the DB for that given email
     {
         return res.status(401).send({"success": false, "message": "Verification Code is not valid for this email"});
     }
