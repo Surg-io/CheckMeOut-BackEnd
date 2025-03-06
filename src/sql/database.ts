@@ -10,7 +10,7 @@ dotenv.config();
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_USER,//process.env.MYSQL_PASSWORD,
+    password:process.env.MYSQL_PASSWORD ,//process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DATABASE,
     port: 3306, // Default MySQL port
     connectTimeout: 5000 // 5 seconds
@@ -270,7 +270,7 @@ export async function GetQRCode(AccID:string)
 {
     try{
         const [rows] :any  = await pool.query(`Select QRCode FROM Students WHERE AccountID = ?`, AccID); //Should only return one...
-        return rows[0].QRCODE;
+        return rows[0].QRCODE; //All CAPS works on linux for some reason...
     }
     catch(err)
     {
