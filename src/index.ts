@@ -69,7 +69,7 @@ app.get("/testtoken", async (req: Request, res: Response) => {
 app.get("/api/qrcode",ValidateToken, async (req:Request,res:Response) => 
 {
     let AccountID = req.body.userId; //User can only get a token if the email is exists in the system. This is the only source of error
-    let QueryResponse:any =await GetQRCode(AccountID);
+    let QueryResponse:any = await GetQRCode(AccountID);
     if(QueryResponse instanceof Error)
     {
         return res.status(500).send({"success": false, "message": QueryResponse.message, "qrcode":"Error"});
@@ -78,7 +78,6 @@ app.get("/api/qrcode",ValidateToken, async (req:Request,res:Response) =>
     {
         return res.status(200).send({"success": true, "message": "QRcode Retreived!", "qrcode":QueryResponse[0].QRCODE});
     }
- 
 });
 
 app.get("/api/stats",ValidateToken, SetPermissions, async (req:Request,res:Response) =>
@@ -150,7 +149,7 @@ app.get("/api/stats",ValidateToken, SetPermissions, async (req:Request,res:Respo
     
 });
 
-app.get("/getuserreservations",ValidateToken, SetPermissions, async (req:Request, res:Response) => 
+app.get("/api/user-reservations",ValidateToken, SetPermissions, async (req:Request, res:Response) => 
 {
     let query = 'Select * from Reservations';
     if(!req.body.admin) //If Admin isn't calling....
@@ -166,7 +165,7 @@ app.get("/getuserreservations",ValidateToken, SetPermissions, async (req:Request
 });
 
 //Return All the Reports in a 3 Month Period...
-app.get("/getreport", ValidateToken, SetPermissions,  async (req:Request,res:Response) => //ValidateToken, SetPermissions, removed for testing...
+app.get("/api/get-reports", ValidateToken, SetPermissions,  async (req:Request,res:Response) => //ValidateToken, SetPermissions, removed for testing...
 {
     let queryresponse = await GetReports(30); //This could work...?
     console.log(queryresponse);
@@ -181,7 +180,7 @@ app.get("/getreport", ValidateToken, SetPermissions,  async (req:Request,res:Res
 });
 
 //Get the Devices in the DB
-app.get("/getdevice",ValidateToken, SetPermissions, async (req:Request,res:Response) => 
+app.get("/api/get-devices",ValidateToken, SetPermissions, async (req:Request,res:Response) => 
 {
     let queryresponse = await GetDevices();
     console.log(queryresponse);
@@ -336,8 +335,8 @@ app.post("/api/reserve", ValidateToken, async (req: Request, res: Response):Prom
 });
 
 //*Returns the reservations made for a certain date
-app.post("/search-date", ValidateToken, async (req: Request,res: Response)  => {
-    let qreserved: any = await ReturnDevices("reservations",req.body.fullDate); //Get all the data, in order of Device ID;
+app.post("/api/search-date", ValidateToken, async (req: Request,res: Response)  => {
+    let qreserved: any = await ReturnDevices("Reservations",req.body.fullDate); //Get all the data, in order of Device ID;
     let devices = []; 
     let reservedtw = [];
     let previd = {"deviceName": "Dummy", "deviceId" : -1}; //For first check
@@ -363,24 +362,23 @@ app.post("/search-date", ValidateToken, async (req: Request,res: Response)  => {
 });
 
 //*Return the CheckIn's
-app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: Response) => //We will build the query based on conditionals
+app.post("/api/history",ValidateToken, SetPermissions, async (req:Request, res: Response) => //We will build the query based on conditionals
 {
     if(req.body.admin) //If an admin is calling...
     {
-
         //Do a Union, descending by Starttime
-        let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
-        if(req.body.ID)
+        let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startDate).toISOString()}' and '${new Date(req.body.endDate).toISOString()}'` //We wrap the input dates for protection...
+        /*if(req.body.AccountID)
         {
             query += ` and ID = ${req.body.ID}`
-        }
-        query += ' Order DESCENDING by checkin';
+        }*/
+        query += ' Order DESCENDING by StartTime';
         let query2 = `select * from ReservationHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
-        if(req.body.ID)
+        /*if(req.body.ID)
         {
             query2 += ` and ID = ${req.body.ID}`
-        }
-        query2 += ' Order DESCENDING by starttime';
+        }*/
+        query2 += ' Order DESCENDING by StartTime';
         
         let scanhistory: any = await checkinhistory(query); 
         let reservationhistory:any = await checkinhistory(query2);
@@ -393,7 +391,7 @@ app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: 
         {
             returnmessage.success = true;
             returnmessage.messasage = "Success in returning info";
-            Object.assign(returnmessage,{"ScanHistory": scanhistory, "ReservationHistory":reservationhistory});
+            Object.assign(returnmessage,{"scanHistory": scanhistory, "reservationHistory":reservationhistory});
             return res.status(200).send(returnmessage);
         }
     }
@@ -418,7 +416,7 @@ app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: 
         {
             returnmessage.success = true;
             returnmessage.messasage = "Success in returning info";
-            Object.assign(returnmessage,{"ScanHistory": scanhistory, "ReservationHistory":reservationhistory});
+            Object.assign(returnmessage,{"scanHistory": scanhistory, "reservationHistory":reservationhistory});
             return res.status(200).send(returnmessage);
         }
 
@@ -426,7 +424,7 @@ app.post("/scanHistory",ValidateToken, SetPermissions, async (req:Request, res: 
 });
 
 //*Cancel Reservation
-app.post("/cancelReservation",ValidateToken,SetPermissions,async (req:Request, res:Response) => 
+app.post("/api/cancel-reservation",ValidateToken,SetPermissions,async (req:Request, res:Response) => 
 {
     let query = `Delete from Reservations WHERE ReservationID = ${req.body.recordId}`
     let response:any;
@@ -447,9 +445,9 @@ app.post("/cancelReservation",ValidateToken,SetPermissions,async (req:Request, r
 });
 
 //*Submitting Reports (USER ENDPOINT ONLY)
-app.post("/report", ValidateToken, async (req:Request,res:Response) =>  //ValidateToken is removed for Testing...
+app.post("/api/submit-report", ValidateToken, async (req:Request,res:Response) =>  //ValidateToken is removed for Testing...
 {
-    let queryresponse = await SubmitReport(req.body.Type,new Date(req.body.Time).toISOString().slice(0, 19).replace("T", " "),req.body.DeviceID,req.body.DeviceName,req.body.Description);
+    let queryresponse = await SubmitReport(req.body.type,new Date(req.body.time).toISOString().slice(0, 19).replace("T", " "),req.body.deviceId,req.body.deviceName,req.body.description);
     if(queryresponse instanceof Error)
     {
         return res.status(500).send({"success": false, "message":queryresponse.message});
@@ -460,9 +458,9 @@ app.post("/report", ValidateToken, async (req:Request,res:Response) =>  //Valida
     }
 });
 
-app.post("/createdevice",async (req:Request,res:Response) => //ValidateToken,SetPermissions,
+app.post("/api/create-device",async (req:Request,res:Response) => //ValidateToken,SetPermissions,
 {   
-    let queryresponse = await CreateDevice(req.body.DeviceName,req.body.Description);
+    let queryresponse = await CreateDevice(req.body.deviceName,req.body.description);
     if(queryresponse instanceof Error)
     {
         return res.status(500).send({"success": false, "message":queryresponse.message});
@@ -493,7 +491,7 @@ app.post("/createdevice",async (req:Request,res:Response) => //ValidateToken,Set
 app.post("/scan", async (req:Request,res:Response) => 
 {
     const currentDate = new Date().toISOString(); //Timestamps when the request comes in, or whenever a code is scanned
-    const response = await NewScan("ScanIn",req.body.ID, currentDate); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
+    const response = await NewScan("ScanIns",req.body.ID, currentDate); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
     return res.send("Scan Executed");
 });
 
