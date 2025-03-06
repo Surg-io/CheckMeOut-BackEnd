@@ -76,7 +76,7 @@ app.get("/api/qrcode",ValidateToken, async (req:Request,res:Response) =>
     }
     else
     {
-        return res.status(200).send({"success": true, "message": "QRcode Retreived!", "qrcode":QueryResponse[0].QRCODE});
+        return res.status(200).send({"success": true, "message": "QRcode Retreived!", "qrcode":QueryResponse});
     }
 });
 
