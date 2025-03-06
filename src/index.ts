@@ -191,7 +191,7 @@ app.get("/api/get-devices",ValidateToken, SetPermissions, async (req:Request,res
     }
     else
     {
-        return res.status(200).send({"success":true,"message":"Devices Return Successful", "Reports": queryresponse})
+        return res.status(200).send(queryresponse)
     }
 });
 
