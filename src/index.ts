@@ -322,6 +322,7 @@ app.post("/api/reserve", ValidateToken, async (req: Request, res: Response) =>
         for(let x of req.body.reservations) //For every reservation that is sent to us from frontend...
         {
             QueryResponse = await RequestReservation("Reservations",req.body.userId, x.deviceName, x.deviceId,x.time); //...try to add it to the reservations table.
+            console.log("Reserving: ",x," with userId: ", req.body.userId);
             if(QueryResponse instanceof Error) //If we don't get an error...
             {
                 await RollbackTransaction(); //Rollback all the requests we've made so far
