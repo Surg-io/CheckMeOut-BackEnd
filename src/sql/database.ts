@@ -195,7 +195,7 @@ export async function RequestReservation(table:string, accountId: number, device
         let sstime = new Date(time); 
         let timeelapsed = 30; //Number of Hours a reservation slot is...
         //For below, Student ID is currently a placeholder...make sure we adjust before rollout
-        await pool.query(`INSERT INTO ${table} (AccountID, DeviceID, DeviceName, StartTime, EndTime) VALUES (?, ?, ?, ?, ?);`,[accountId,deviceId,deviceName,sstime,new Date(sstime.setMinutes(sstime.getMinutes() + timeelapsed))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
+        await pool.query(`INSERT INTO ${table} (AccountID, DeviceID, DeviceName, StartTime, EndTime) VALUES (?, ?, ?, ?, ?);`,[accountId,deviceId,deviceName,sstime.toLocaleString('en-US'),new Date(sstime.setMinutes(sstime.getMinutes() + timeelapsed).toLocaleString('en-US'))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
         return true;
     }
     catch (err) {

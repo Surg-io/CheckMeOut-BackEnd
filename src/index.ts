@@ -68,12 +68,11 @@ app.get("/testtoken", async (req: Request, res: Response) => {
 
 app.get("/gettime", async (req: Request, res: Response) => {
     let sstime = new Date(); 
-    let timeelapsed = 2; //Number of Hours a reservation slot is...
-    console.log(sstime);
-    let change = Number(sstime.getHours()+ timeelapsed);
-    sstime.setHours(change);
-
-    console.log(typeof(.5));
+    let timeelapsed = 30; //Number of Hours a reservation slot is...
+    console.log(sstime.toLocaleString('en-US'));
+    let change = Number(sstime.getMinutes()+ timeelapsed);
+    sstime.setMinutes(change);
+    console.log(sstime.toLocaleString('en-US'));
     return res.send("Time");
 });
 
