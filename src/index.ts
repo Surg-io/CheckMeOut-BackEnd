@@ -1,5 +1,5 @@
 import express, { Express, query, Request, Response } from "express";
-import {ReturnDates, CreateDB, CreateDevice,GetReports, SubmitReport, GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations, GetDevices} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates,RollbackTransaction, StartTranaction, CommitTransaction, CreateDevice,GetReports, SubmitReport, GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations, GetDevices} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser from "body-parser";
 import {calculateTotal, SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
@@ -212,7 +212,7 @@ app.post("/api/login", SanatizeInput("username","E"), SanatizeInput("password","
     {
         QueryResponse = await RetreivePassword(username,0); 
         if(QueryResponse instanceof Error) //If Query is an Error
-        return res.status(500).send({"success":false, message: QueryResponse.message});
+            return res.status(500).send({"success":false, message: QueryResponse.message});
         admin = true;
     }
     let ReturnMessage = {"success": false, "message": "Invalid password or email"};
@@ -243,6 +243,7 @@ app.post("/api/login", SanatizeInput("username","E"), SanatizeInput("password","
         }
         else //If passwords don't match, return Error. Mismatched password
         {
+            console.log("Wrong password!"); 
             return res.status(401).send(ReturnMessage);
         }
     }
@@ -289,7 +290,7 @@ app.post("/api/register-user", SanatizeInput("firstName","N"),SanatizeInput("las
     let token = (await SignToken({"userId": AccountID},'1h')).toLocaleLowerCase().slice(-30);  //This is for the QR code
     console.log(token);
      //Timestamps when the request comes in, or whenever a code is scanned
-    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.firstName,req.body.lastName,new Date(req.body.dateOfBirth).toISOString().slice(0,19).replace("T", " "),req.body.email,req.body.major,req.body.password,token,new Date(req.body.dateOfBirth).toISOString().slice(0, 19).replace("T", " ")); //Accessing said resource, so we need to wait for a responses
+    let response: Error | any = await RegNewUser(`Students`,AccountID,req.body.firstName,req.body.lastName,new Date(req.body.dateOfBirth).toISOString().slice(0,19).replace("T", " "),req.body.email,req.body.major,req.body.password,token,new Date().toISOString().slice(0, 19).replace("T", " ")); //Accessing said resource, so we need to wait for a responses
     if(response instanceof Error)
     {
         return res.status(500).send({"success":false,"message": "Verification code was successful, but there was an error: " + response.message}); //Sends the Error
@@ -303,38 +304,44 @@ app.post("/api/register-user", SanatizeInput("firstName","N"),SanatizeInput("las
 
 
 //*Making a reservation for a device
-app.post("/api/reserve", ValidateToken, async (req: Request, res: Response):Promise<void> => 
+app.post("/api/reserve", ValidateToken, async (req: Request, res: Response) => 
 {// We write the code with the intention that times are blocked between devices(2 Hour Increments, 3 Hour, etc.)
     let reservations = [];
     let status:string;
     let reason:string | number;
     let index: number = 0;
-    let badreservations = [];
-    if(req.body){
+    let response = {"success":false, "message": "Transaction Start/Commit Error"};
+    let QueryResponse;
+    if(req.body.reservations)
+    {
+        QueryResponse = await StartTranaction();
+        if(QueryResponse instanceof Error)
+        {
+            return res.status(500).send(response);
+        }
         for(let x of req.body.reservations) //For every reservation that is sent to us from frontend...
         {
-            let response = await RequestReservation("Reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.
-            if(response[0]) //If we don't get an error...
+            QueryResponse = await RequestReservation("Reservations",req.body.userId, x.deviceName, x.deviceId,x.time); //...try to add it to the reservations table.
+            if(QueryResponse instanceof Error) //If we don't get an error...
             {
-                status = "Success";//...then we have successfully logged the reservations. The status will reflect so.
-                reason = response[1];
+                await RollbackTransaction(); //Rollback all the requests we've made so far
+                return res.status(500).send({"success":true, "message": QueryResponse.message}); //Send Response
             }
             else
             {
-            status = "Failed";//...else, we failed at logging in the reservation. The status will reflect so.
-            reason = response[1];
-            badreservations.push(index);
+                reservations.push({"deviceId": x.deviceId, //Add the information of the reservation and its status of completion to an array...
+                    "device": x.device,
+                    "time": x.time});
             }
-            reservations.push({"deviceId": x.deviceId, //Add the information of the reservation and its status of completion to an array...
-                "device": x.device,
-                "time": x.time,
-                "status": status,
-                "reason": reason});
-            index += 1;
+        }
+        QueryResponse = await CommitTransaction(); //Commit all reservations
+        if(QueryResponse instanceof Error)
+        {
+            return res.status(500).send(response);
         }
     }
     console.log(reservations);
-    res.send({"reservations" : reservations,  "errorIndicies": badreservations}); //...and the array gets send back to frontend.
+    res.send({"success":true, "message": reservations}); //...and the array gets send back to frontend.
 });
 
 //*Returns the reservations made for a certain date

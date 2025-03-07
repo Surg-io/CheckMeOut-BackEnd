@@ -107,8 +107,8 @@ export async function CreateTables()
         await pool.query("CREATE TABLE IF NOT EXISTS `Devices` (`DeviceID` int AUTO_INCREMENT, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250), PRIMARY KEY (`DeviceID`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `QRCode` varchar(50) NOT NULL, `Created` DATETIME not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`), UNIQUE `EMAIL` (`EMAIL`))"); //`StudentID` int (9) NOT NULL UNIQUE `StudentID` (`StudentID`)
         await pool.query("CREATE TABLE IF NOT EXISTS `ScanIns` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
-        await pool.query("CREATE TABLE IF NOT EXISTS `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
-        await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL, PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
         await pool.query("CREATE TABLE IF NOT EXISTS `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL)");
         await pool.query("CREATE TABLE IF NOT EXISTS `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` varchar(9), Primary Key(`Email`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Admins` (`Email` varchar(100) NOT NULL, `Password` varchar(50) NOT NULL, Primary Key(`Email`))");
@@ -118,6 +118,47 @@ export async function CreateTables()
         console.log("Error in creating tables: " + err);
     }  
 }
+//--------------Transaction Helpers--------------------------
+
+export async function StartTranaction()
+{
+    try
+    {
+        await pool.query(`Start Transaction`);
+        return true;
+    }
+    catch(err)
+    {
+        return Error("Error in Starting Transaction" + err);
+    }
+}
+
+export async function RollbackTransaction() {
+    try
+    {
+        await pool.query(`Rollback`);
+        return true;
+    }
+    catch (err)
+    {
+        return Error("Error in Rolling Back Transaction" + err);
+    }
+}   
+
+
+export async function CommitTransaction()
+{
+    try{
+        await pool.query(`Commit`);
+        return true;
+    }
+    catch (err)
+    {
+        return Error("Error in Committing Transaction" + err);
+    }
+}
+
+//-------------------------------------------------------------
 
 
 //--------------Insert Queries------------------------
@@ -148,18 +189,17 @@ export async function NewScan(table:string, ID:string, Datetime:string)
     }  
 }
 
-export async function RequestReservation(table:string, device:string, ID:string, time:Date)
+export async function RequestReservation(table:string, accountId: number, deviceName:string, deviceId:number, time:Date)
 {
     try{
         let sstime = new Date(time); 
         let timeelapsed = .5; //Number of Hours a reservation slot is...
         //For below, Student ID is currently a placeholder...make sure we adjust before rollout
-        await pool.query(`INSERT INTO ${table} (deviceID, deviceName, starttime, endtime, resstatus) VALUES (?, ?, ?, ?, 'Reserved');`,[ID,device,sstime,new Date(sstime.setHours(sstime.getHours() + timeelapsed))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
-        return [1, "NA"];
+        await pool.query(`INSERT INTO ${table} (AccountID, DeviceID, DeviceName, StartTime, EndTime) VALUES (?, ?, ?, ?, ?);`,[accountId,deviceId,deviceName,sstime,new Date(sstime.setHours(sstime.getHours() + timeelapsed))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
+        return true;
     }
     catch (err) {
-        const error = err as Error; //This typecasts the err into an Error type, so we can now process it line by line.
-        return [0, error.message.split('\n')[0]];
+        return Error("Error in Making Reservation: "+ err);
     }
 }
 
@@ -304,7 +344,7 @@ export async function ReturnDates (table:string, fullDate:string)
 export async function ReturnDevices (table:string, fullDate:string)
 {
     try{
-        const [rows] = await pool.query(`SELECT deviceName,deviceID,starttime,endtime,resstatus FROM ${table} where starttime BETWEEN now() AND Date(?) ORDER BY deviceID`,[fullDate]) //Get Which Devices have reservations
+        const [rows] = await pool.query(`SELECT deviceName,deviceID,starttime,endtime FROM ${table} where starttime BETWEEN now() AND Date(?) ORDER BY deviceID`,[fullDate]) //Get Which Devices have reservations
         return rows;
     }
     catch (err) {
