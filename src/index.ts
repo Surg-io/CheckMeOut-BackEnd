@@ -65,6 +65,18 @@ app.get("/testtoken", async (req: Request, res: Response) => {
     let payload = {"load":123}
     return res.send({"token": (await SignToken(payload,'1h')).toLocaleLowerCase().substring(0,30)});
 });
+
+app.get("/gettime", async (req: Request, res: Response) => {
+    let sstime = new Date(); 
+    let timeelapsed = 2; //Number of Hours a reservation slot is...
+    console.log(sstime);
+    let change = Number(sstime.getHours()+ timeelapsed);
+    sstime.setHours(change);
+
+    console.log(typeof(.5));
+    return res.send("Time");
+});
+
 //-------------------------------------------------------------
 app.get("/api/qrcode",ValidateToken, async (req:Request,res:Response) => 
 {
@@ -355,13 +367,13 @@ app.post("/api/search-date", ValidateToken, async (req: Request,res: Response)  
     {
         if(previd.deviceId == x.deviceId || previd.deviceId == -1)//Add the times and status
         {
-            reservedtw.push({"startTime": x.StartTime.toLocaleTimeString("en-GB").toString(),"endTime":x.EndTime.toLocaleTimeString("en-GB").toString(), "Status":x.ResStatus});
+            reservedtw.push({"startTime": x.StartTime.toLocaleTimeString("en-US").toString(),"endTime":x.EndTime.toLocaleTimeString("en-US").toString(), "Status":x.ResStatus});
         }
         else //Upon encountering a new device, append the previous device with array of times, and start a new time array for the current device
         {
             devices.push({"deviceId": `${previd.deviceId}`, "deviceName":`${previd.deviceName}`, "timeWindows": JSON.parse(JSON.stringify(reservedtw))}); //There is only shallow copying in JS, so we need to deep copy
             reservedtw.length = 0;
-            reservedtw.push({"startTime": x.StartTime.toLocaleTimeString("en-GB").toString(),"endTime":x.EndTime.toLocaleTimeString("en-GB").toString(), "status":x.ResStatus});
+            reservedtw.push({"startTime": x.StartTime.toLocaleTimeString("en-US").toString(),"endTime":x.EndTime.toLocaleTimeString("en-US").toString(), "status":x.ResStatus});
         }
         console.log(reservedtw.length)
         previd = x;
