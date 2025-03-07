@@ -310,26 +310,28 @@ app.post("/api/reserve", ValidateToken, async (req: Request, res: Response):Prom
     let reason:string | number;
     let index: number = 0;
     let badreservations = [];
-    for(let x of req.body) //For every reservation that is sent to us from frontend...
-    {
-        let response = await RequestReservation("Reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.
-        if(response[0]) //If we don't get an error...
+    if(req.body){
+        for(let x of req.body.reservations) //For every reservation that is sent to us from frontend...
         {
-            status = "Success";//...then we have successfully logged the reservations. The status will reflect so.
+            let response = await RequestReservation("Reservations",x.device, x.deviceId,x.time); //...try to add it to the reservations table.
+            if(response[0]) //If we don't get an error...
+            {
+                status = "Success";//...then we have successfully logged the reservations. The status will reflect so.
+                reason = response[1];
+            }
+            else
+            {
+            status = "Failed";//...else, we failed at logging in the reservation. The status will reflect so.
             reason = response[1];
+            badreservations.push(index);
+            }
+            reservations.push({"deviceId": x.deviceId, //Add the information of the reservation and its status of completion to an array...
+                "device": x.device,
+                "time": x.time,
+                "status": status,
+                "reason": reason});
+            index += 1;
         }
-        else
-        {
-           status = "Failed";//...else, we failed at logging in the reservation. The status will reflect so.
-           reason = response[1];
-           badreservations.push(index);
-        }
-        reservations.push({"deviceId": x.deviceId, //Add the information of the reservation and its status of completion to an array...
-            "device": x.device,
-            "time": x.time,
-            "status": status,
-            "reason": reason});
-        index += 1;
     }
     console.log(reservations);
     res.send({"reservations" : reservations,  "errorIndicies": badreservations}); //...and the array gets send back to frontend.
