@@ -176,7 +176,7 @@ app.get("/api/get-reports", ValidateToken, SetPermissions,  async (req:Request,r
     }
     else
     {
-        return res.status(200).send({"success":true,"message":"Report Return Successful", "Reports": queryresponse})
+        return res.status(200).send({"success":true,"message":"Report Return Successful", "reports": queryresponse})
     }
 });
 
@@ -191,7 +191,7 @@ app.get("/api/get-devices",ValidateToken, SetPermissions, async (req:Request,res
     }
     else
     {
-        return res.status(200).send({"success":true,"message":"Devices Return Successful", "Devices": queryresponse})
+        return res.status(200).send({"success":true,"message":"Devices Return Successful", "devices": queryresponse})
     }
 });
 
