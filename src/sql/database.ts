@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { time } from 'console';
 import { NumericLiteral } from 'typescript';
 import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
+import utc from 'dayjs/plugin/utc.js';
 dayjs.extend(utc)
 dotenv.config();
 
