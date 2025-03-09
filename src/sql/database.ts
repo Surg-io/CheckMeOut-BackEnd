@@ -190,7 +190,7 @@ export async function NewScan(res: Response, table:string, ID:string, Time:strin
         }
         let AccountID = findAcc[0].AccountID; //Set AccountID to the AccoundID we found.
 
-        let [StartTime]:any = await pool.query(`Select StartTime from ScansIns where AccountID = ?`,[AccountID]) //Checks to see if the Student is currently scanned in or not. 
+        let [StartTime]:any = await pool.query(`Select StartTime from ScanIns where AccountID = ?`,[AccountID]) //Checks to see if the Student is currently scanned in or not. 
         if(StartTime.length === 0) //If the Student is not checked in (as we couldn't find their TimeStamp in the ScanIn table...) 
         {
             await pool.query(`Insert into ScanIns (AccountID,Time) VALUES (?,?)`, [AccountID, Time]); //Check them in.
