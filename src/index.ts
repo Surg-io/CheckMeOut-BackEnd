@@ -1,6 +1,6 @@
 import express, { Express, query, Request, Response } from "express";
 import {ReturnDates,RollbackTransaction, StartTranaction, CommitTransaction, CreateDevice,GetReports, SubmitReport, GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations, GetDevices} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
-import bodyParser from "body-parser";
+import bodyParser, { json } from "body-parser";
 import {calculateTotal, SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
 import request from 'supertest';
@@ -13,6 +13,7 @@ import { Sign } from "crypto";
 import { validateHeaderName } from "http";
 import { stat } from "fs";
 import { parseArgs } from "util";
+import dayjs from "dayjs";
 dotenv.config();
 //import { timeStamp } from "console";
 //var time = require("express-timestamp");
@@ -323,6 +324,9 @@ app.post("/api/reserve", ValidateToken, async (req: Request, res: Response) =>
     let index: number = 0;
     let response = {"success":false, "message": "Transaction Start/Commit Error"};
     let QueryResponse;
+    if (!req.body.reservations.every((r:any) => dayjs(r.time).isValid())) {
+        return res.status(400).send({success: false, message: "Invalid time format"});
+    }
     if(req.body.reservations)
     {
         QueryResponse = await StartTranaction();
@@ -337,7 +341,7 @@ app.post("/api/reserve", ValidateToken, async (req: Request, res: Response) =>
             if(QueryResponse instanceof Error) //If we don't get an error...
             {
                 await RollbackTransaction(); //Rollback all the requests we've made so far
-                return res.status(500).send({"success":true, "message": QueryResponse.message}); //Send Response
+                return res.status(500).send({"success":false, "message": QueryResponse.message}); //Send Response
             }
             else
             {

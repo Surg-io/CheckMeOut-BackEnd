@@ -4,6 +4,9 @@ import nodemailer from "nodemailer";
 import dotenv from 'dotenv';
 import { time } from 'console';
 import { NumericLiteral } from 'typescript';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc)
 dotenv.config();
 
 // ~MYSQL Databasse Connection~
@@ -192,10 +195,12 @@ export async function NewScan(table:string, ID:string, Datetime:string)
 export async function RequestReservation(table:string, accountId: number, deviceName:string, deviceId:number, time:Date)
 {
     try{
-        let sstime = new Date(time); 
+        let sstime = dayjs(time); 
         let timeelapsed = 30; //Number of Hours a reservation slot is...
         //For below, Student ID is currently a placeholder...make sure we adjust before rollout
-        await pool.query(`INSERT INTO ${table} (AccountID, DeviceID, DeviceName, StartTime, EndTime) VALUES (?, ?, ?, ?, ?);`,[accountId,deviceId,deviceName,sstime.toLocaleString('en-US'),new Date(sstime.setMinutes(sstime.getMinutes() + timeelapsed).toLocaleString('en-US'))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
+        const startTime = sstime.utc().format('YYYY-MM-DD HH:mm:ss');
+        const endTime = sstime.add(timeelapsed, 'minute').utc().format('YYYY-MM-DD HH:mm:ss');
+        await pool.query(`INSERT INTO ${table} (AccountID, DeviceID, DeviceName, StartTime, EndTime) VALUES (?, ?, ?, ?, ?);`,[accountId,deviceId,deviceName,startTime,endTime]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
         return true;
     }
     catch (err) {
