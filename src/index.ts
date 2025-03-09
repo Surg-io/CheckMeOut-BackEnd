@@ -1,5 +1,5 @@
 import express, { Express, query, Request, Response } from "express";
-import {ReturnDates,RollbackTransaction, StartTranaction, CommitTransaction, CreateDevice,GetReports, SubmitReport, GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations, GetDevices} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates,RollbackTransaction, StartTranaction, CommitTransaction, CreateDevice,GetReports, SubmitReport, GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations, GetDevices, CreateTableScripts} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser, { json } from "body-parser";
 import {calculateTotal, SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
@@ -52,6 +52,11 @@ app.get("/inittables", async (req: Request, res: Response) => {
     await CreateTables();
     res.send("Get Method");
 });
+
+app.get("/initscripts", async (req:Request, res:Response) =>
+{
+    await CreateTableScripts(res);
+})
 
 app.get("/testtables", async (req: Request, res: Response) => {
     let rows:any = await GetTableRows();

@@ -6,6 +6,7 @@ import { time } from 'console';
 import { NumericLiteral } from 'typescript';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
+import { ServerStreamFileResponseOptionsWithError } from 'http2';
 dayjs.extend(utc)
 dotenv.config();
 
@@ -62,29 +63,36 @@ export async function CreateTables()
 //---------------Table Initialization Queries------------------------
 
 
-export async function CreateTableScripts()
+export async function CreateTableScripts(res:Response)
 {
     //Script for transfering all people that didn't check out into checked out.
-    await pool.query(`DELIMITER $$
+    try{
+        await pool.query(`DELIMITER $$
 
-CREATE EVENT TransferScanDataDaily
-ON SCHEDULE EVERY 1 DAY
-STARTS TIMESTAMP(CURRENT_DATE + INTERVAL 1 DAY, '23:59:59') -- Starts at midnight tonight
-DO
-BEGIN
-    -- Step 1: Insert rows from ScanIns to ScanHistory
-    INSERT INTO ScanHistory (AccountID, StartTime, EndTime)
-    SELECT 
-        AccountID, 
-        StartTime, 
-        DATE_ADD(StartTime, INTERVAL 1 HOUR) AS EndTime -- Calculate EndTime
-    FROM ScanIns;
-
-    -- Step 2: Delete rows from ScanIns after transfer
-    DELETE FROM ScanIns;
-END$$
-
-DELIMITER ;`);
+            CREATE EVENT TransferScanDataDaily
+            ON SCHEDULE EVERY 1 DAY
+            STARTS TIMESTAMP(CURRENT_DATE + INTERVAL 1 DAY, '23:59:59') -- Starts at midnight tonight
+            DO
+            BEGIN
+                -- Step 1: Insert rows from ScanIns to ScanHistory
+                INSERT INTO ScanHistory (AccountID, StartTime, EndTime)
+                SELECT 
+                    AccountID, 
+                    StartTime, 
+                    DATE_ADD(StartTime, INTERVAL 1 HOUR) AS EndTime -- Calculate EndTime
+                FROM ScanIns;
+            
+                -- Step 2: Delete rows from ScanIns after transfer
+                DELETE FROM ScanIns;
+            END$$
+            
+            DELIMITER ;`);
+            res.send("Scripts Created");
+    }
+    catch(err)
+    {
+        res.send(Error("Error in Creating Scripts: " + err).message);
+    }
 }
 
 export async function CreateDB()
