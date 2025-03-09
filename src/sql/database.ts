@@ -196,6 +196,10 @@ export async function RequestReservation(table:string, accountId: number, device
 {
     try{
         let sstime = dayjs(time); 
+        if (sstime.isBefore(dayjs(), 'minute')) {
+            return new Error("Cannot make a reservation for a past time.");
+        }
+
         let timeelapsed = 30; //Number of Hours a reservation slot is...
         //For below, Student ID is currently a placeholder...make sure we adjust before rollout
         const startTime = sstime.utc().format('YYYY-MM-DD HH:mm:ss');
