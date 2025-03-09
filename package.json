@@ -8,10 +8,9 @@
     "build": "npx tsc",
     "prestart": "npm run build",
     "start": "node build/index.js",
-    "preserver": "npm run build",
     "compile": "tsc --pretty -w",
     "server": "concurrently \"npm run compile\" \"nodemon build/index.js\"",
-    "start:prod": "npm run build && npm run start" 
+    "start:prod": "npm run build && node build/index.js"
   },
   "author": "",
   "license": "ISC",
