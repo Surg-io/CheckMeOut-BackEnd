@@ -382,6 +382,9 @@ app.post("/api/search-date", ValidateToken, async (req: Request,res: Response)  
         previd = x;
     }
     devices.push({"deviceId": `${previd.deviceId}`, "deviceName":`${previd.deviceName}`, "timeWindows": reservedtw}); //After the last entry is read, append the last entry along with its array. This doesn't need deep copy as its the most recent one
+    if (devices.length > 0 && devices[0].deviceId === "-1") {
+        devices.shift();
+    }
     let DateArray = new Date(req.body.fullDate).toLocaleDateString().split("/")
     let response = {"selectedDate": `${DateArray[2]}-${DateArray[0]}-${DateArray[1]}`, "devices": devices}; //THIS NEEDS TESTING. Should be returning Year Month Day
     return res.send(response);
