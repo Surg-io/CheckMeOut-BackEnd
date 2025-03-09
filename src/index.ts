@@ -485,7 +485,7 @@ app.post("/api/create-device",async (req:Request,res:Response) => //ValidateToke
 //*Timestamping requests for CheckIn
 app.post("/scan", async (req:Request,res:Response) => 
 {
-    const currentDate = new Date(req.body.time).toISOString().slice(0, 19).replace("T", " "); //The timestamp for whenever the code is scanned
+    const currentDate = new Date().toISOString().slice(0, 19).replace("T", " "); //The timestamp for whenever the code is scanned
     await NewScan(res, "ScanIns",req.body.QRCode, currentDate); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
 });
 
