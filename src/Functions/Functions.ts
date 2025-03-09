@@ -45,13 +45,14 @@ export async function SetPermissions(req:Request, res:Response, next:NextFunctio
 //---------------Input Sanatization-------------------
 const NameRegex = new RegExp('^[A-Z][a-z]{0,99}$');
 const EmailRegex = new RegExp('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-const PassRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
+const PassRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/;
 
 
 export function SanatizeInput(field:string, type:string) {
+  
   return (req: Request, res: Response, next: NextFunction) => {
     const input = req.body[field];
-
+    console.log(PassRegex.test(input));
     let isValid = false;
     switch (type) {
         case 'N': // Name validation

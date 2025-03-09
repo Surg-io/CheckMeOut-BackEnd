@@ -393,59 +393,28 @@ app.post("/api/history",ValidateToken, SetPermissions, async (req:Request, res: 
     if(req.body.admin) //If an admin is calling...
     {
         //Do a Union, descending by Starttime
-        let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startDate).toISOString()}' and '${new Date(req.body.endDate).toISOString()}'` //We wrap the input dates for protection...
+        let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startDate).toISOString().slice(0, 19).replace("T", " ")}' and '${new Date(req.body.endDate).toISOString().slice(0, 19).replace("T", " ")}'` //We wrap the input dates for protection...
         /*if(req.body.AccountID)
         {
             query += ` and ID = ${req.body.ID}`
         }*/
         query += ' Order DESCENDING by StartTime';
-        let query2 = `select * from ReservationHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
+        let query2 = `select * from ReservationHistory where StartTime between '${new Date(req.body.startDate).toISOString().slice(0, 19).replace("T", " ")}' and '${new Date(req.body.endDate).toISOString().slice(0, 19).replace("T", " ")}'` //We wrap the input dates for protection...
         /*if(req.body.ID)
         {
             query2 += ` and ID = ${req.body.ID}`
         }*/
         query2 += ' Order DESCENDING by StartTime';
-        
-        let scanhistory: any = await checkinhistory(query); 
-        let reservationhistory:any = await checkinhistory(query2);
-        let returnmessage = {"success": false, "messasage": "Error in Returning Query"}
-        if (scanhistory instanceof Error || reservationhistory instanceof Error)
-        {
-            return res.status(500).send(returnmessage);
-        }
-        else
-        {
-            returnmessage.success = true;
-            returnmessage.messasage = "Success in returning info";
-            Object.assign(returnmessage,{"scanHistory": scanhistory, "reservationHistory":reservationhistory});
-            return res.status(200).send(returnmessage);
-        }
+        await checkinhistory(res, query,query2); 
     }
     else //If User is Calling...
     {
-        let query = `select * from ScanHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
-        query += `where AccountID = ${req.body.userId}`
-        query += ' Order DESCENDING by checkin';
+        let query = `select * from ScanHistory WHERE AccountID = '${req.body.userId}' AND StartTime between '${new Date(req.body.startDate).toISOString().slice(0, 19).replace("T", " ")}' and '${new Date(req.body.endDate).toISOString().slice(0, 19).replace("T", " ")}'` //We wrap the input dates for protection...
+        query += ' Order by StartTime DESC';
         //Return Histories between time period where the ID matches their own ID
-        let query2 = `select * from ReservationHistory where StartTime between '${new Date(req.body.startdate).toISOString()}' and '${new Date(req.body.enddate).toISOString()}'` //We wrap the input dates for protection...
-        query2 += `where AccountID = ${req.body.userId}`
-        query2 += ' Order DESCENDING by StartTime';
-        
-        let scanhistory: any = await checkinhistory(query); 
-        let reservationhistory:any = await checkinhistory(query2);
-        let returnmessage = {"success": false, "messasage": "Error in Returning Query"}
-        if (scanhistory instanceof Error || reservationhistory instanceof Error)
-        {
-            return res.status(500).send(returnmessage);
-        }
-        else
-        {
-            returnmessage.success = true;
-            returnmessage.messasage = "Success in returning info";
-            Object.assign(returnmessage,{"scanHistory": scanhistory, "reservationHistory":reservationhistory});
-            return res.status(200).send(returnmessage);
-        }
-
+        let query2 = `select * from ReservationHistory WHERE AccountID = '${req.body.userId}' AND StartTime between '${new Date(req.body.startDate).toISOString().slice(0, 19).replace("T", " ")}' and '${new Date(req.body.endDate).toISOString().slice(0, 19).replace("T", " ")}'` //We wrap the input dates for protection...
+        query2 += ' Order by StartTime DESC';
+        await checkinhistory(res, query,query2); 
     }
 });
 
@@ -516,9 +485,8 @@ app.post("/api/create-device",async (req:Request,res:Response) => //ValidateToke
 //*Timestamping requests for CheckIn
 app.post("/scan", async (req:Request,res:Response) => 
 {
-    const currentDate = new Date().toISOString(); //Timestamps when the request comes in, or whenever a code is scanned
-    const response = await NewScan("ScanIns",req.body.ID, currentDate); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
-    return res.send("Scan Executed");
+    const currentDate = new Date().toLocaleString("en-US"); //Timestamps when the request comes in, or whenever a code is scanned
+    await NewScan(res, "ScanIns",req.body.QRCode, currentDate); //Passes the ID, time and date in a format acceptable to SQL so query can take place.
 });
 
 

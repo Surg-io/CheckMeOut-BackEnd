@@ -13,7 +13,7 @@ dotenv.config();
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
-    password:process.env.MYSQL_PASSWORD ,//process.env.MYSQL_PASSWORD,
+    password:process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DATABASE,
     port: 3306, // Default MySQL port
     connectTimeout: 5000 // 5 seconds
@@ -114,7 +114,7 @@ export async function CreateTables()
         await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
         await pool.query("CREATE TABLE IF NOT EXISTS `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL)");
         await pool.query("CREATE TABLE IF NOT EXISTS `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` varchar(9), Primary Key(`Email`))");
-        await pool.query("CREATE TABLE IF NOT EXISTS `Admins` (`Email` varchar(100) NOT NULL, `Password` varchar(50) NOT NULL, Primary Key(`Email`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Admins` (`AccountID` varchar(50) NOT NULL Unique , `Email` varchar(100) NOT NULL Unique, `Password` varchar(50) NOT NULL, Primary Key(`Email`))");
         console.log("Created Tables");
     }
     catch(err){
@@ -180,15 +180,31 @@ export async function RegNewUser (table:string,AccountID:string,FN:string,LN:str
     }  
 }
 //Query For Putting in Scans
-export async function NewScan(table:string, ID:string, Datetime:string)
+export async function NewScan(res: Response, table:string, ID:string, Time:string)
 {
     try {
+        let [findAcc]:any = await pool.query(`Select AccountID from Students Where QRCode = ?`,[ID]); //Checks to see if the Account associated with the Code being sent exists
+        if (findAcc.length === 0) //If An empty array is returned, the query is not found.
+        {
+            return res.status(400).send({"success": false, "message": "Account Not Found"})
+        }
+        let AccountID = findAcc[0].AccountID; //Set AccountID to the AccoundID we found.
 
-        let response =  await pool.query(`INSERT INTO ${table} (AccountID, StartTime) VALUES (?,?,?)` , [ID,Datetime]); //.query returns a "query packet", which you assign to arrays. 
-        console.log(response + ": New Scan Detected");
+        let [StartTime]:any = await pool.query(`Select StartTime from ScansIns where AccountID = ?`,[AccountID]) //Checks to see if the Student is currently scanned in or not. 
+        if(StartTime.length === 0) //If the Student is not checked in (as we couldn't find their TimeStamp in the ScanIn table...) 
+        {
+            await pool.query(`Insert into ScanIns (AccountID,Time) VALUES (?,?)`, [AccountID, Time]); //Check them in.
+            return res.status(200).send({"success":true,"message":"Checked In!"});
+        }
+        else //If the student is checked in
+        {
+            await pool.query(`Insert into ScanHistory (AccountID, StartTime,EndTime) VALUES (?,?,?)`,[AccountID,StartTime[0].StartTime,Time]); //Then this scan is a checkout. We need to add it into Scan History...
+            await pool.query(`Delete from ScanIns where AccountID = ?`,[AccountID]); //... and delete it from the current ScanIn's
+            return res.status(200).send({"status":true, "message":"Checked Out!"});
+        }
     }
     catch(err){
-        console.log("Error in entering new scan: " + err);
+       return res.status(500).send({"success":false,"message":Error("Error in Scan:" + err).message});
     }  
 }
 
@@ -363,15 +379,17 @@ export async function ReturnDevices (table:string, fullDate:string)
     }
 }
 
-export async function checkinhistory(query:string)
+export async function checkinhistory(res:Response,query:string,query2:string)
 {
     try{
-        const [rows] = await pool.query(query); //Get the reservations based on the query
-        return rows;
+        const [scanhistory] = await pool.query(query); //Get the reservations based on the query
+        const [reservationhistory] = await pool.query(query2); 
+        let returnmessage = {"success": true, "messasage": "Success in returning info", "scanHistory": scanhistory, "reservationHistory":reservationhistory}
+        return res.status(200).send(returnmessage);
     }
     catch (err) {
         
-        return Error("Error in returning Query" + err);
+        return res.send({"success":false, "message": Error("Error in Returning History: "+ err).message})
     }
 }
 
