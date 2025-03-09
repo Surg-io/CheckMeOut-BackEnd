@@ -167,7 +167,7 @@ app.get("/api/user-reservations",ValidateToken, SetPermissions, async (req:Reque
     let query = 'Select * from Reservations';
     if(!req.body.admin) //If Admin isn't calling....
     {   
-        query += `WHERE AccountID = ${req.body.userId}`;
+        query += ` WHERE AccountID = ${req.body.userId}`;
     }
     let rows:any = await getCurrentReservations(query);
     if(rows instanceof Error)
