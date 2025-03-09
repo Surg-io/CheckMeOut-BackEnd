@@ -366,15 +366,15 @@ app.post("/api/search-date", ValidateToken, async (req: Request, res: Response) 
     let deviceMap = new Map(); // Use map to store device info for quick searching
 
     for (let x of qreserved) { // Iterate through query result
-        if (!deviceMap.has(x.deviceId)) { // If the device is not in the device list
-            deviceMap.set(x.deviceId, {
-                deviceId: `${x.deviceId}`,
+        if (!deviceMap.has(x.deviceID)) { // If the device is not in the device list
+            deviceMap.set(x.deviceID, {
+                deviceId: `${x.deviceID}`,
                 deviceName: `${x.deviceName}`,
                 timeWindows: []
             });
         }
         // Add time windows to the device
-        deviceMap.get(x.deviceId).timeWindows.push({
+        deviceMap.get(x.deviceID).timeWindows.push({
             startTime: x.starttime.toISOString(),
             endTime: x.endtime.toISOString()
         });
