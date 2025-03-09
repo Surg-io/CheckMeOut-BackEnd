@@ -370,7 +370,7 @@ app.post("/api/search-date", ValidateToken, async (req: Request,res: Response)  
     {
         if(previd.deviceId == x.deviceId || previd.deviceId == -1)//Add the times and status
         {
-            reservedtw.push({"startTime": x.StartTime.toLocaleTimeString("en-US").toString(),"endTime":x.EndTime.toLocaleTimeString("en-US").toString(), "Status":x.ResStatus});
+            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-US").toString(),"endtime":x.endTime.toLocaleTimeString("en-US").toString()});
         }
         else //Upon encountering a new device, append the previous device with array of times, and start a new time array for the current device
         {
