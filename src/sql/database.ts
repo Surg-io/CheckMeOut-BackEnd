@@ -193,7 +193,7 @@ export async function NewScan(res: Response, table:string, ID:string, Time:strin
         let [StartTime]:any = await pool.query(`Select StartTime from ScanIns where AccountID = ?`,[AccountID]) //Checks to see if the Student is currently scanned in or not. 
         if(StartTime.length === 0) //If the Student is not checked in (as we couldn't find their TimeStamp in the ScanIn table...) 
         {
-            await pool.query(`Insert into ScanIns (AccountID,Time) VALUES (?,?)`, [AccountID, Time]); //Check them in.
+            await pool.query(`Insert into ScanIns (AccountID,StartTime) VALUES (?,?)`, [AccountID, Time]); //Check them in.
             return res.status(200).send({"success":true,"message":"Checked In!"});
         }
         else //If the student is checked in
