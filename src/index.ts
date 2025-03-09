@@ -360,32 +360,30 @@ app.post("/api/reserve", ValidateToken, async (req: Request, res: Response) =>
     res.send({"success":true, "message": reservations}); //...and the array gets send back to frontend.
 });
 
-//*Returns the reservations made for a certain date
-app.post("/api/search-date", ValidateToken, async (req: Request,res: Response)  => {
-    let qreserved: any = await ReturnDevices("Reservations",req.body.fullDate); //Get all the data, in order of Device ID;
-    let devices = []; 
-    let reservedtw = [];
-    let previd = {"deviceName": "Dummy", "deviceID" : -1}; //For first check
-    for(let x of qreserved) //Go through Data
-    {
-        if(previd.deviceID == x.deviceId || previd.deviceID == -1)//Add the times and status
-        {
-            reservedtw.push({"startTime": x.starttime.toISOString(),"endTime":x.endtime.toISOString()});
+app.post("/api/search-date", ValidateToken, async (req: Request, res: Response) => {
+    let qreserved: any = await ReturnDevices("Reservations", req.body.fullDate); // Get all the data, in order of Device ID;
+    let devices = [];
+    let deviceMap = new Map(); // Use map to store device info for quick searching
+
+    for (let x of qreserved) { // Iterate through query result
+        if (!deviceMap.has(x.deviceId)) { // If the device is not in the device list
+            deviceMap.set(x.deviceId, {
+                deviceId: `${x.deviceId}`,
+                deviceName: `${x.deviceName}`,
+                timeWindows: []
+            });
         }
-        else //Upon encountering a new device, append the previous device with array of times, and start a new time array for the current device
-        {
-            devices.push({"deviceId": `${previd.deviceID}`, "deviceName":`${previd.deviceName}`, "timeWindows": JSON.parse(JSON.stringify(reservedtw))}); //There is only shallow copying in JS, so we need to deep copy
-            reservedtw.length = 0;
-            reservedtw.push({"startTime": x.starttime.toISOString(),"endTime":x.endtime.toISOString()});
-        }
-        console.log(reservedtw.length)
-        previd = x;
+        // Add time windows to the device
+        deviceMap.get(x.deviceId).timeWindows.push({
+            startTime: x.starttime.toISOString(),
+            endTime: x.endtime.toISOString()
+        });
     }
-    devices.push({"deviceId": `${previd.deviceID}`, "deviceName":`${previd.deviceName}`, "timeWindows": reservedtw}); //After the last entry is read, append the last entry along with its array. This doesn't need deep copy as its the most recent one
-    if (devices.length > 0 && devices[0].deviceId === "-1") {
-        devices.shift();
-    }
-    let response = {"devices": devices}; //THIS NEEDS TESTING. Should be returning Year Month Day
+
+    // Convert map to array
+    devices = Array.from(deviceMap.values());
+
+    let response = { "devices": devices }; // send response
     return res.send(response);
 });
 
