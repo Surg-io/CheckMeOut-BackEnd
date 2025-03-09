@@ -368,8 +368,8 @@ app.post("/api/search-date", ValidateToken, async (req: Request, res: Response) 
     for (let x of qreserved) { // Iterate through query result
         if (!deviceMap.has(x.deviceID)) { // If the device is not in the device list
             deviceMap.set(x.deviceID, {
-                deviceId: `${x.deviceID}`,
-                deviceName: `${x.deviceName}`,
+                deviceId: x.deviceID,
+                deviceName: x.deviceName,
                 timeWindows: []
             });
         }
