@@ -376,7 +376,7 @@ app.post("/api/search-date", ValidateToken, async (req: Request,res: Response)  
         {
             devices.push({"deviceId": `${previd.deviceId}`, "deviceName":`${previd.deviceName}`, "timeWindows": JSON.parse(JSON.stringify(reservedtw))}); //There is only shallow copying in JS, so we need to deep copy
             reservedtw.length = 0;
-            reservedtw.push({"startTime": x.StartTime.toLocaleTimeString("en-US").toString(),"endTime":x.EndTime.toLocaleTimeString("en-US").toString(), "status":x.ResStatus});
+            reservedtw.push({"startTime": x.starttime.toLocaleTimeString("en-US").toString(),"endTime":x.endtime.toLocaleTimeString("en-US").toString()});
         }
         console.log(reservedtw.length)
         previd = x;
