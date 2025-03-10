@@ -131,7 +131,7 @@ export async function CreateTables()
         await pool.query("DROP TABLE IF EXISTS `ScanIns`, `Reservations`, `ReservationHistory`, `ScanHistory`, `RegistrationVerificationCodes`, `Admins`, `Reports`, `Devices`");
         await pool.query("DROP TABLE IF EXISTS `Students`");
         //For Testing Purposes only...Delete ^ When we actually deploy
-        await pool.query("Create TABLE IF NOT EXISTS `Reports` (`ReportID` int NOT NULL AUTO_INCREMENT, `Type` varchar(30) NOT NULL, `Time` DATETIME NOT NULL, `DeviceID` int not null, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250) NOT NULL, PRIMARY KEY (`ReportID`))");
+        await pool.query("Create TABLE IF NOT EXISTS `Reports` (`ReportID` int NOT NULL AUTO_INCREMENT, `Type` varchar(30) NOT NULL, `Time` DATETIME NOT NULL, `DeviceID` int not null, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250) NOT NULL, `Created` DATETIME NOT NULL, PRIMARY KEY (`ReportID`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Devices` (`DeviceID` int AUTO_INCREMENT, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250), PRIMARY KEY (`DeviceID`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `QRCode` varchar(50) NOT NULL, `Created` DATETIME not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`), UNIQUE `EMAIL` (`EMAIL`))"); //`StudentID` int (9) NOT NULL UNIQUE `StudentID` (`StudentID`)
         await pool.query("CREATE TABLE IF NOT EXISTS `ScanIns` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
@@ -316,7 +316,7 @@ export async function SubmitReport(T:string,Time:string,ID:number,Device:string,
 {
   try
   {
-      await pool.query("Insert into Reports (Type,Time,DeviceID,DeviceName,Description) values (?,?,?,?,?)",[T,Time,ID,Device,Description]);
+      await pool.query("Insert into Reports (Type,Time,DeviceID,DeviceName,Description,Created) values (?,?,?,?,?,NOW())",[T,Time,ID,Device,Description]);
   }
   catch (err)
   {
@@ -543,7 +543,7 @@ export async function getPeakTime(timeRange:number) {
 export async function GetReports(Time:Number)
 {
     try{
-        let [rows] = await pool.query(`Select * from Reports where Time <= NOW() - INTERVAL ? Day`, [Time]);
+        let [rows] = await pool.query(`Select * from Reports where Created <= NOW() - INTERVAL ? Day`, [Time]);
         return rows;
     }catch (err)
     {
