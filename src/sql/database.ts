@@ -316,7 +316,7 @@ export async function SubmitReport(T:string,Time:string,ID:number,Device:string,
 {
   try
   {
-      await pool.query("Insert into Reports (Type,Time,DeviceID,DeviceName,Description,Created) values (?,?,?,?,?,NOW())",[T,Time,ID,Device,Description]);
+      await pool.query("Insert into Reports (Type,Time,DeviceID,DeviceName,Description,Created) values (?,?,?,?,?,Now())",[T,Time,ID,Device,Description]);
   }
   catch (err)
   {
@@ -470,16 +470,16 @@ export async function CountUsers(timeframe:number)
         {
             
             case 24: //1 day
-            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED <= NOW() - INTERVAL '1 day'`); //Amount doesn't need to be an array as it is a value
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '1 day'`); //Amount doesn't need to be an array as it is a value
                 break;
             case 7: //7 days
-            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED <= NOW() - INTERVAL '1 week`);
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '1 week`);
                 break;
             case 30: //30 days
-            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED <= NOW() - INTERVAL '1 month'`);
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '1 month'`);
                 break;
             default: //6 Months
-            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED <= NOW() - INTERVAL '6 months'`);
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '6 months'`);
         }
         return amount;
     }
@@ -490,7 +490,7 @@ export async function CountUsers(timeframe:number)
 }
 
 export async function getNumReservations(timeRange: number) {
-    const query = `SELECT DeviceID, DeviceName, COUNT(*) AS count FROM ReservationHistory WHERE StartTime <= NOW() - INTERVAL ? DAY GROUP BY DeviceID, DeviceName`;
+    const query = `SELECT DeviceID, DeviceName, COUNT(*) AS count FROM ReservationHistory WHERE StartTime >= NOW() - INTERVAL ? DAY GROUP BY DeviceID, DeviceName`;
         const [rows] = await pool.query(query, [timeRange]);
         return rows;
     
@@ -498,7 +498,7 @@ export async function getNumReservations(timeRange: number) {
 
 export async function CountCheckIns(timeRange:number)
 {
-    const query = `SELECT COUNT(*) FROM ScanHistory WHERE StartTime <= NOW() - INTERVAL ?`;
+    const query = `SELECT COUNT(*) FROM ScanHistory WHERE StartTime >= NOW() - INTERVAL ?`;
     const rows = await pool.query(query, [timeRange]); //Rows doesn't need to be an array as it is a value
     return rows;
 }
@@ -509,7 +509,7 @@ export async function getPeakTime(timeRange:number) {
         HOUR(CheckInTime) AS hour,
         COUNT(*) AS checkin_count
       FROM CheckIns
-      WHERE CheckInTime <= NOW() - INTERVAL ? HOUR
+      WHERE CheckInTime >= NOW() - INTERVAL ? HOUR
       GROUP BY HOUR(CheckInTime)
       ORDER BY checkin_count DESC
       LIMIT 1;
@@ -543,7 +543,7 @@ export async function getPeakTime(timeRange:number) {
 export async function GetReports(Time:Number)
 {
     try{
-        let [rows] = await pool.query(`Select * from Reports where Created <= NOW() - INTERVAL ? Day`, [Time]);
+        let [rows] = await pool.query(`Select * from Reports where Created >= NOW() - INTERVAL ? Day`, [Time]);
         return rows;
     }catch (err)
     {
