@@ -403,13 +403,13 @@ app.post("/api/history",ValidateToken, SetPermissions, async (req:Request, res: 
         {
             query += ` and ID = ${req.body.ID}`
         }*/
-        query += ' Order DESCENDING by StartTime';
+        query += ' Order by StartTime DESC';
         let query2 = `select * from ReservationHistory where StartTime between '${new Date(req.body.startDate).toISOString().slice(0, 19).replace("T", " ")}' and '${new Date(req.body.endDate).toISOString().slice(0, 19).replace("T", " ")}'` //We wrap the input dates for protection...
         /*if(req.body.ID)
         {
             query2 += ` and ID = ${req.body.ID}`
         }*/
-        query2 += ' Order DESCENDING by StartTime';
+        query2 += ' Order by StartTime DESC';
         await checkinhistory(res, query,query2); 
     }
     else //If User is Calling...
