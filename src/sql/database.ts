@@ -74,9 +74,12 @@ export async function CreateTableScripts(res:Response)
             DO
             BEGIN
                 -- Step 1: Insert rows from ScanIns to ScanHistory
-                INSERT INTO ScanHistory (AccountID, StartTime, EndTime)
+                INSERT INTO ScanHistory (AccountID, FN,LN,EMAIL, StartTime, EndTime)
                 SELECT 
                     AccountID, 
+                    FN,
+                    LN,
+                    Email,
                     StartTime, 
                     DATE_ADD(StartTime, INTERVAL 1 HOUR) AS EndTime -- Calculate EndTime
                 FROM ScanIns;
@@ -134,10 +137,10 @@ export async function CreateTables()
         await pool.query("Create TABLE IF NOT EXISTS `Reports` (`ReportID` int NOT NULL AUTO_INCREMENT, `Type` varchar(30) NOT NULL, `Time` DATETIME NOT NULL, `DeviceID` int not null, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250) NOT NULL, `Created` DATETIME NOT NULL, PRIMARY KEY (`ReportID`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Devices` (`DeviceID` int AUTO_INCREMENT, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250), PRIMARY KEY (`DeviceID`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `QRCode` varchar(50) NOT NULL, `Created` DATETIME not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`), UNIQUE `EMAIL` (`EMAIL`))"); //`StudentID` int (9) NOT NULL UNIQUE `StudentID` (`StudentID`)
-        await pool.query("CREATE TABLE IF NOT EXISTS `ScanIns` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))");
-        await pool.query("CREATE TABLE IF NOT EXISTS `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL, PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
-        await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
-        await pool.query("CREATE TABLE IF NOT EXISTS `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL)");
+        await pool.query("CREATE TABLE IF NOT EXISTS `ScanIns` (`AccountID` varchar (50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `EMAIL` varchar(200) NOT NULL,`StartTime` DATETIME NOT NULL)"); //Foreign Key FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))
+        await pool.query("CREATE TABLE IF NOT EXISTS `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL, `FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `EMAIL` varchar(200) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL, PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `EMAIL` varchar(200) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `ScanHistory` (`AccountID` varchar (50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `EMAIL` varchar(200) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL)");
         await pool.query("CREATE TABLE IF NOT EXISTS `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` varchar(9), Primary Key(`Email`))");
         await pool.query("CREATE TABLE IF NOT EXISTS `Admins` (`AccountID` varchar(50) NOT NULL Unique , `Email` varchar(100) NOT NULL Unique, `Password` varchar(50) NOT NULL, Primary Key(`Email`))");
         console.log("Created Tables");
@@ -208,7 +211,7 @@ export async function RegNewUser (table:string,AccountID:string,FN:string,LN:str
 export async function NewScan(res: Response, table:string, ID:string, Time:string)
 {
     try {
-        let [findAcc]:any = await pool.query(`Select AccountID from Students Where QRCode = ?`,[ID]); //Checks to see if the Account associated with the Code being sent exists
+        let [findAcc]:any = await pool.query(`Select AccountID, FN, LN, Email from Students Where QRCode = ?`,[ID]); //Checks to see if the Account associated with the Code being sent exists
         if (findAcc.length === 0) //If An empty array is returned, the query is not found.
         {
             return res.status(400).send({"success": false, "message": "Account Not Found"})
@@ -218,12 +221,12 @@ export async function NewScan(res: Response, table:string, ID:string, Time:strin
         let [StartTime]:any = await pool.query(`Select StartTime from ScanIns where AccountID = ?`,[AccountID]) //Checks to see if the Student is currently scanned in or not. 
         if(StartTime.length === 0) //If the Student is not checked in (as we couldn't find their TimeStamp in the ScanIn table...) 
         {
-            await pool.query(`Insert into ScanIns (AccountID,StartTime) VALUES (?,?)`, [AccountID, Time]); //Check them in.
+            await pool.query(`Insert into ScanIns (AccountID, FN, LN, Email, StartTime) VALUES (?,?,?,?,,?)`, [AccountID,AccountID,findAcc[0].FN,findAcc[0].LN,findAcc[0].Email, Time]); //Check them in.
             return res.status(200).send({"success":true,"message":"Checked In!"});
         }
         else //If the student is checked in
         {
-            await pool.query(`Insert into ScanHistory (AccountID, StartTime,EndTime) VALUES (?,?,?)`,[AccountID,StartTime[0].StartTime,Time]); //Then this scan is a checkout. We need to add it into Scan History...
+            await pool.query(`Insert into ScanHistory (AccountID, FN, LN, Email, StartTime,EndTime) VALUES (?,?,?,?,?,?)`,[AccountID,findAcc[0].FN,findAcc[0].LN,findAcc[0].Email,StartTime[0].StartTime,Time]); //Then this scan is a checkout. We need to add it into Scan History...
             await pool.query(`Delete from ScanIns where AccountID = ?`,[AccountID]); //... and delete it from the current ScanIn's
             return res.status(200).send({"status":true, "message":"Checked Out!"});
         }
@@ -240,12 +243,12 @@ export async function RequestReservation(table:string, accountId: number, device
         if (sstime.isBefore(dayjs(), 'minute')) {
             return new Error("Cannot make a reservation for a past time.");
         }
-
+        let [AccountInfo] :any  = await pool.query(`Select FN,LN, Email from Students where AccountID = ?`,[accountId]);
         let timeelapsed = 30; //Number of Hours a reservation slot is...
         //For below, Student ID is currently a placeholder...make sure we adjust before rollout
         const startTime = sstime.utc().format('YYYY-MM-DD HH:mm:ss');
         const endTime = sstime.add(timeelapsed, 'minute').utc().format('YYYY-MM-DD HH:mm:ss');
-        await pool.query(`INSERT INTO ${table} (AccountID, DeviceID, DeviceName, StartTime, EndTime) VALUES (?, ?, ?, ?, ?);`,[accountId,deviceId,deviceName,startTime,endTime]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
+        await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,Email,DeviceID, DeviceName, StartTime, EndTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,[accountId,AccountInfo[0].FN,AccountInfo[0].LN,AccountInfo[0].Email,deviceId,deviceName,startTime,endTime]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
         return true;
     }
     catch (err) {
@@ -543,7 +546,7 @@ export async function getPeakTime(timeRange:number) {
 export async function GetReports(Time:Number)
 {
     try{
-        let [rows] = await pool.query(`Select * from Reports where Created >= NOW() - INTERVAL ? Day`, [Time]);
+        let [rows] = await pool.query(`Select ReportID,Time, DeviceID, Description from Reports where Created >= NOW() - INTERVAL ? Day`, [Time]);
         return rows;
     }catch (err)
     {

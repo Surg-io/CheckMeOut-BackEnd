@@ -169,7 +169,7 @@ app.get("/api/stats",ValidateToken, SetPermissions, async (req:Request,res:Respo
 
 app.get("/api/user-reservations",ValidateToken, SetPermissions, async (req:Request, res:Response) => 
 {
-    let query = 'Select * from Reservations';
+    let query = 'Select ReservationID, AccountID, DeviceID,DeviceName, StartTime,EndTime from Reservations';
     if(!req.body.admin) //If Admin isn't calling....
     {   
         query += ` WHERE AccountID = '${req.body.userId}'`;
@@ -185,6 +185,8 @@ app.get("/api/user-reservations",ValidateToken, SetPermissions, async (req:Reque
 //Return All the Reports in a 3 Month Period...
 app.get("/api/get-reports", ValidateToken, SetPermissions,  async (req:Request,res:Response) => //ValidateToken, SetPermissions, removed for testing...
 {
+    if(req.body.admin)
+    {
     let queryresponse = await GetReports(30); //This could work...?
     console.log(queryresponse);
     if (queryresponse instanceof Error)
@@ -195,6 +197,11 @@ app.get("/api/get-reports", ValidateToken, SetPermissions,  async (req:Request,r
     {
         return res.status(200).send({"success":true,"message":"Report Return Successful", "reports": queryresponse})
     }
+}
+else
+{
+    return res.status(401).send({"success":false,"message":"Unauthorized Access to API"});
+}
 });
 
 //Get the Devices in the DB
@@ -458,9 +465,11 @@ app.post("/api/submit-report", ValidateToken, async (req:Request,res:Response) =
     }
 });
 
-app.post("/api/create-device",async (req:Request,res:Response) => //ValidateToken,SetPermissions,
+app.post("/api/create-device", ValidateToken,SetPermissions, async (req:Request,res:Response) => //
 {   
-    let queryresponse = await CreateDevice(req.body.deviceName,req.body.description);
+    if(req.body.admin)
+    {
+        let queryresponse = await CreateDevice(req.body.deviceName,req.body.description);
     if(queryresponse instanceof Error)
     {
         return res.status(500).send({"success": false, "message":queryresponse.message});
@@ -469,6 +478,13 @@ app.post("/api/create-device",async (req:Request,res:Response) => //ValidateToke
     {
         return res.status(200).send({"success":true, "message": "Device Added"});
     }
+
+    }
+    else
+    {
+        return res.status(401).send({"success":false, "message":"You are not Authorized to Add Device"});
+    }
+    
 });
 
 //Non-Promise Based Post Request
