@@ -87,6 +87,30 @@ export async function CreateTableScripts(res:Response)
                 -- Step 2: Delete rows from ScanIns after transfer
                 DELETE FROM ScanIns;
             END;`);
+
+            await pool.query(`
+                CREATE EVENT TransferReservationsDaily
+                ON SCHEDULE EVERY 1 DAY
+                STARTS TIMESTAMP(CURRENT_DATE + INTERVAL 1 DAY, '23:59:59') -- Starts at midnight tonight
+                DO
+                BEGIN
+                    -- Step 1: Insert rows from ScanIns to ScanHistory
+                    INSERT INTO ReservationHistory ReservationHistory (ReservationID, AccountID, FN, LN, EMAIL, DeviceID, DeviceName, StartTime, EndTime)
+                    SELECT 
+                        ReservationID,
+                        AccountID, 
+                        FN,
+                        LN,
+                        Email,
+                        DeviceID,
+                        DeviceName,
+                        StartTime, 
+                        EndTime
+                    FROM Reservations;
+                
+                    -- Step 2: Delete rows from ScanIns after transfer
+                    DELETE FROM ScanIns;
+                END;`);
         /*await pool.query(`DELIMITER $$
 
             CREATE EVENT TransferScanDataDaily
