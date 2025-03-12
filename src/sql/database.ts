@@ -222,13 +222,13 @@ export async function NewScan(res: Response, table:string, ID:string, Time:strin
         if(StartTime.length === 0) //If the Student is not checked in (as we couldn't find their TimeStamp in the ScanIn table...) 
         {
             await pool.query(`Insert into ScanIns (AccountID, FN, LN, Email, StartTime) VALUES (?,?,?,?,?)`, [AccountID,findAcc[0].FN,findAcc[0].LN,findAcc[0].Email, Time]); //Check them in.
-            return res.status(200).send({"success":true,"message":"Checked In!"});
+            return res.status(200).send({"success":true,"message":`Welcome ${findAcc[0].FN}!`});
         }
         else //If the student is checked in
         {
             await pool.query(`Insert into ScanHistory (AccountID, FN, LN, Email, StartTime,EndTime) VALUES (?,?,?,?,?,?)`,[AccountID,findAcc[0].FN,findAcc[0].LN,findAcc[0].Email,StartTime[0].StartTime,Time]); //Then this scan is a checkout. We need to add it into Scan History...
             await pool.query(`Delete from ScanIns where AccountID = ?`,[AccountID]); //... and delete it from the current ScanIn's
-            return res.status(200).send({"status":true, "message":"Checked Out!"});
+            return res.status(200).send({"status":true, "message":`Goodbye ${findAcc[0].FN}!`});
         }
     }
     catch(err){
