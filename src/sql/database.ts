@@ -511,7 +511,7 @@ export async function getPeakTime(timeRange:number) {
       SELECT 
         HOUR(CheckInTime) AS hour,
         COUNT(*) AS checkin_count
-      FROM CheckIns
+      FROM ScanIns
       WHERE CheckInTime >= NOW() - INTERVAL ? HOUR
       GROUP BY HOUR(CheckInTime)
       ORDER BY checkin_count DESC
