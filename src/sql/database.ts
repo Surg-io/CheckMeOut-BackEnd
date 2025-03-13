@@ -546,7 +546,7 @@ export async function getPeakTime(timeRange:number) {
 export async function GetReports(Time:Number)
 {
     try{
-        let [rows] = await pool.query(`Select ReportID,Time, DeviceID, Description from Reports where Created >= NOW() - INTERVAL ? Day`, [Time]);
+        let [rows] = await pool.query(`Select ReportID,Type, Time, DeviceID, Description from Reports where Created >= NOW() - INTERVAL ? Day`, [Time]);
         return rows;
     }catch (err)
     {
