@@ -87,6 +87,30 @@ export async function CreateTableScripts(res:Response)
                 -- Step 2: Delete rows from ScanIns after transfer
                 DELETE FROM ScanIns;
             END;`);
+
+            await pool.query(`
+                CREATE EVENT TransferReservationsDaily
+                ON SCHEDULE EVERY 1 DAY
+                STARTS TIMESTAMP(CURRENT_DATE + INTERVAL 1 DAY, '23:59:59') -- Starts at midnight tonight
+                DO
+                BEGIN
+                    -- Step 1: Insert rows from ScanIns to ScanHistory
+                    INSERT INTO ReservationHistory ReservationHistory (ReservationID, AccountID, FN, LN, EMAIL, DeviceID, DeviceName, StartTime, EndTime)
+                    SELECT 
+                        ReservationID,
+                        AccountID, 
+                        FN,
+                        LN,
+                        Email,
+                        DeviceID,
+                        DeviceName,
+                        StartTime, 
+                        EndTime
+                    FROM Reservations;
+                
+                    -- Step 2: Delete rows from ScanIns after transfer
+                    DELETE FROM ScanIns;
+                END;`);
         /*await pool.query(`DELIMITER $$
 
             CREATE EVENT TransferScanDataDaily
@@ -221,14 +245,14 @@ export async function NewScan(res: Response, table:string, ID:string, Time:strin
         let [StartTime]:any = await pool.query(`Select StartTime from ScanIns where AccountID = ?`,[AccountID]) //Checks to see if the Student is currently scanned in or not. 
         if(StartTime.length === 0) //If the Student is not checked in (as we couldn't find their TimeStamp in the ScanIn table...) 
         {
-            await pool.query(`Insert into ScanIns (AccountID, FN, LN, Email, StartTime) VALUES (?,?,?,?,,?)`, [AccountID,AccountID,findAcc[0].FN,findAcc[0].LN,findAcc[0].Email, Time]); //Check them in.
-            return res.status(200).send({"success":true,"message":"Checked In!"});
+            await pool.query(`Insert into ScanIns (AccountID, FN, LN, Email, StartTime) VALUES (?,?,?,?,?)`, [AccountID,findAcc[0].FN,findAcc[0].LN,findAcc[0].Email, Time]); //Check them in.
+            return res.status(200).send({"success":true,"message":`Welcome ${findAcc[0].FN}!`});
         }
         else //If the student is checked in
         {
             await pool.query(`Insert into ScanHistory (AccountID, FN, LN, Email, StartTime,EndTime) VALUES (?,?,?,?,?,?)`,[AccountID,findAcc[0].FN,findAcc[0].LN,findAcc[0].Email,StartTime[0].StartTime,Time]); //Then this scan is a checkout. We need to add it into Scan History...
             await pool.query(`Delete from ScanIns where AccountID = ?`,[AccountID]); //... and delete it from the current ScanIn's
-            return res.status(200).send({"status":true, "message":"Checked Out!"});
+            return res.status(200).send({"status":true, "message":`Goodbye ${findAcc[0].FN}!`});
         }
     }
     catch(err){
