@@ -533,11 +533,11 @@ export async function CountCheckIns(timeRange:number)
 export async function getPeakTime(timeRange:number) {
     const query = `
       SELECT 
-        HOUR(CheckInTime) AS hour,
+        HOUR(StartTime) AS hour,
         COUNT(*) AS checkin_count
       FROM ScanIns
-      WHERE CheckInTime >= NOW() - INTERVAL ? HOUR
-      GROUP BY HOUR(CheckInTime)
+      WHERE StartTime >= NOW() - INTERVAL ? HOUR
+      GROUP BY HOUR(StartTime)
       ORDER BY checkin_count DESC
       LIMIT 1;
     `;
