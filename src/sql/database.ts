@@ -518,16 +518,31 @@ export async function CountUsers(timeframe:number)
 
 export async function getNumReservations(timeRange: number) {
     const query = `SELECT DeviceID, DeviceName, COUNT(*) AS count FROM ReservationHistory WHERE StartTime >= NOW() - INTERVAL ? DAY GROUP BY DeviceID, DeviceName`;
+    try{
         const [rows] = await pool.query(query, [timeRange]);
         return rows;
+    }   
+    catch(err)
+    {
+        return Error("Error in Getting Number of Reservations: " + err);
+    } 
+    
     
 }
 
 export async function CountCheckIns(timeRange:number)
 {
-    const query = `SELECT COUNT(*) FROM ScanHistory WHERE StartTime >= NOW() - INTERVAL ?`;
+    try
+    {
+        const query = `SELECT COUNT(*) FROM ScanHistory WHERE StartTime >= NOW() - INTERVAL ?`;
     const rows = await pool.query(query, [timeRange]); //Rows doesn't need to be an array as it is a value
     return rows;
+    }
+    catch(err)
+    {
+        return Error("Error in Returning Number of CheckIn's: ")
+    }
+    
 }
 
 export async function getPeakTime(timeRange:number) {

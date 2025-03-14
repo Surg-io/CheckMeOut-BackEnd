@@ -114,7 +114,7 @@ app.get("/api/stats",ValidateToken, SetPermissions, async (req:Request,res:Respo
             p6month = await CountUsers(100);
         }catch(err)
         {
-            res.status(500).send({"Success": false, "Message": "Error in Returning Number of Users" + err })
+            return res.status(500).send({"Success": false, "Message": "Error in Returning Number of Users" + err })
         }
         Object.assign(data,{"newUsers": {"past24h": pday,"past7d": pweek,"past30d": pmonth,"past6m": p6month}});
         try {
@@ -124,7 +124,7 @@ app.get("/api/stats",ValidateToken, SetPermissions, async (req:Request,res:Respo
              pmonth = await getNumReservations(30);
              p6month = await getNumReservations(180);
           } catch (err) {
-            res.status(500).send({"Success": false, "Message": "Error in Returning Reservations of Users" + err });
+            return res.status(500).send({"Success": false, "Message": "Error in Returning Reservations of Users" + err });
           }
           Object.assign(data,{"reservationsMade": {
             past24h: {
@@ -151,7 +151,7 @@ app.get("/api/stats",ValidateToken, SetPermissions, async (req:Request,res:Respo
              pmonth = await CountCheckIns(30);
              p6month = await CountCheckIns(180);
           } catch (err) {
-            res.status(500).send({"Success": false, "Message": "Error in Returning Number of Users" + err });
+            return res.status(500).send({"Success": false, "Message": "Error in Returning Number of Users" + err });
           }
           Object.assign(data,{"checkinsMade": {"past24h": pday,"past7d": pweek,"past30d": pmonth,"past6m": p6month}});
           try {
