@@ -1,5 +1,5 @@
 import express, { Express, query, Request, Response } from "express";
-import {ReturnDates,RollbackTransaction, StartTranaction, CommitTransaction, CreateDevice,GetReports, SubmitReport, GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations, GetDevices, CreateTableScripts} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
+import {ReturnDates,ErrorRate,RollbackTransaction, StartTranaction, CommitTransaction, CreateDevice,GetReports, SubmitReport, GetTableRows, CancelReservation,CountCheckIns, RegNewUser,NewScan,ReturnDevices,RequestReservation, RetreivePassword, checkinhistory, CreateTables, CountUsers, getPeakTime, getNumReservations, SendVerificationEmail,ValidateVerificationCode,GetQRCode, getCurrentReservations, GetDevices, CreateTableScripts} from './sql/database.js'; // tsc creates error, doesnt include .js extension - because of ESM and node shit, just leave it like this with .js
 import bodyParser, { json } from "body-parser";
 import {calculateTotal, SanatizeInput, SendEmail,SetPermissions, SignToken,ValidateToken} from "./Functions/Functions.js";
 import { time } from "console";
@@ -158,11 +158,17 @@ app.get("/api/stats",ValidateToken, SetPermissions, async (req:Request,res:Respo
             pday = await getPeakTime(24);
             pweek = await getPeakTime(7 * 24);
           } catch (error) {
-            console.error('Error fetching peak time:', error);
-            return res.status(500).json({ error: 'Internal Server Error' });
+            return res.status(500).json({"Success": false, "Message": "Error in Getting Peak Time" });
           }
           Object.assign(data,{"peakTime": {"past24h": pday,"past7d":pweek}});
-          return res.status(200).json(data);
+          try {
+             pday = await ErrorRate();
+          } 
+          catch (error) {
+            return res.status(500).json({"Success": false, "Message": "Error in Getting Error Rate" });
+          }
+          Object.assign(data,{"errorrate": pday});
+          return res.status(200).send(data);
     }
     
 });

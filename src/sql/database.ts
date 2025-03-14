@@ -231,6 +231,31 @@ export async function RegNewUser (table:string,AccountID:string,FN:string,LN:str
         return response;
     }  
 }
+
+export async function ErrorRate()
+{
+    try{ //Will return an array, of deviceId: errorrate key value pairs. 
+        let errors = [];
+        let [rows]:any = pool.query(`Select DeviceID,Count(*) as Count from Reports. Group By DeviceID`);
+        for (let i = 0;i < rows.length; ++i) //For every deviceID we get from reports
+        {
+            let [numberofres]:any = (`Select Count(*) As Count from ReservationHistory where DeviceID = ${rows[i].DeviceID}`); //Get the number of reservations that device has
+            let errorrate;
+            let denominator = numberofres[0].Count; //Set this as the denominator
+            if(denominator === 0)
+            {
+                denominator = 1; //If a device has no reservations, set it equal to one
+            }
+            errorrate = rows[i].Count/denominator; //Find the rate, which is the amount of reports/number of reservations
+            errors.push({"deviceId": rows[i].DeviceID,"errorrate":errorrate}); //Push the key value pair
+        }
+        return errors; //Return Array
+    }
+    catch(err)
+    {
+        Error("Error In Returning Error Rate");
+    }
+}
 //Query For Putting in Scans
 export async function NewScan(res: Response, table:string, ID:string, Time:string)
 {
