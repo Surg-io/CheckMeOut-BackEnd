@@ -1,48 +1,435 @@
 import mysql, { QueryResult } from 'mysql2';
+import express, { Express, NextFunction, Request, Response } from "express";
+import nodemailer from "nodemailer";
 import dotenv from 'dotenv';
+import { time } from 'console';
+import { NumericLiteral } from 'typescript';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc.js';
+import { ServerStreamFileResponseOptionsWithError } from 'http2';
+dayjs.extend(utc)
 dotenv.config();
 
 // ~MYSQL Databasse Connection~
 const pool = mysql.createPool({  //You can go without the .promise(). If you initialize a pool without.promise(), you will have to rely on callback functions. 
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    database: process.env.MYSQL_DATABASE
+    password:process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
+    port: 3306, // Default MySQL port
+    connectTimeout: 5000 // 5 seconds
 }).promise();
 
+
+//---------------For Testing----------------
+export async function GetTableRows()
+{
+    try{
+        const [rows] = await pool.query(`Select * from scanhistory`)
+        return rows;
+    }
+    catch(err)
+    {
+        return Error("Error: "+ err);
+    }
+    
+}
+
+//---For Testing----------------
+/*
+export async function CreateTables()
+{
+    try {
+        await pool.query("DROP TABLE IF EXISTS `Reservations`, `ReservationHistory`, `ScanHistory`, `ScanIns`, `Students`,`RegistrationVerificationCodes`,`Admins`, `Reports`,`Devices`");
+        //For Testing Purposes only...Delete ^ When we actually deploy
+        await pool.query("Create TABLE IF NOT EXISTS `Reports` (`ReportID` int NOT NULL AUTO_INCREMENT, `Type` varchar(30) NOT NULL, `Time` DATETIME NOT NULL, `DeviceID` int not null, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250) NOT NULL, PRIMARY KEY (`ReportID`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Devices` (`DeviceID` int AUTO_INCREMENT, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250), PRIMARY KEY (`DeviceID`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `QRCode` varchar(50) NOT null, `Created` DATETIME not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`), UNIQUE `EMAIL` (`EMAIL`))"); //`StudentID` int (9) NOT NULL UNIQUE `StudentID` (`StudentID`)
+        await pool.query("CREATE TABLE IF NOT EXISTS `ScanIns` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL, FOREIGN KEY (`AccountID`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,`ResStatus` varchar(20) DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `ScanHistory` (`AccountID` varchar (50) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL)");
+        await pool.query("CREATE TABLE IF NOT EXISTS `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` int(9), Primary Key(`Email`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Admins` (`Email` varchar(100) NOT NULL, `Password` varchar(50) NOT NULL, Primary Key(`Email`))");
+        console.log("Created Tables");
+    }
+    catch(err){
+        console.log("Error in creating tables: " + err);
+    }  
+}
+    */
+//-------------------------------------------
+
+//---------------Table Initialization Queries------------------------
+
+
+export async function CreateTableScripts(res:Response)
+{
+    //Script for transfering all people that didn't check out into checked out.
+    try{await pool.query("SET GLOBAL event_scheduler = ON;");
+        await pool.query(`
+            CREATE EVENT TransferScanDataDaily
+            ON SCHEDULE EVERY 1 DAY
+            STARTS TIMESTAMP(CURRENT_DATE + INTERVAL 1 DAY, '23:59:59') -- Starts at midnight tonight
+            DO
+            BEGIN
+                -- Step 1: Insert rows from ScanIns to ScanHistory
+                INSERT INTO ScanHistory (AccountID, FN,LN,EMAIL, StartTime, EndTime)
+                SELECT 
+                    AccountID, 
+                    FN,
+                    LN,
+                    Email,
+                    StartTime, 
+                    DATE_ADD(StartTime, INTERVAL 1 HOUR) AS EndTime -- Calculate EndTime
+                FROM ScanIns;
+            
+                -- Step 2: Delete rows from ScanIns after transfer
+                DELETE FROM ScanIns;
+            END;`);
+
+            await pool.query(`
+                CREATE EVENT TransferReservationsDaily
+                ON SCHEDULE EVERY 1 DAY
+                STARTS TIMESTAMP(CURRENT_DATE + INTERVAL 1 DAY, '23:59:59') -- Starts at midnight tonight
+                DO
+                BEGIN
+                    -- Step 1: Insert rows from ScanIns to ScanHistory
+                    INSERT INTO ReservationHistory ReservationHistory (ReservationID, AccountID, FN, LN, EMAIL, DeviceID, DeviceName, StartTime, EndTime)
+                    SELECT 
+                        ReservationID,
+                        AccountID, 
+                        FN,
+                        LN,
+                        Email,
+                        DeviceID,
+                        DeviceName,
+                        StartTime, 
+                        EndTime
+                    FROM Reservations;
+                
+                    -- Step 2: Delete rows from ScanIns after transfer
+                    DELETE FROM ScanIns;
+                END;`);
+        /*await pool.query(`DELIMITER $$
+
+            CREATE EVENT TransferScanDataDaily
+            ON SCHEDULE EVERY 1 DAY
+            STARTS TIMESTAMP(CURRENT_DATE + INTERVAL 1 DAY, '23:59:59') -- Starts at midnight tonight
+            DO
+            BEGIN
+                -- Step 1: Insert rows from ScanIns to ScanHistory
+                INSERT INTO ScanHistory (AccountID, StartTime, EndTime)
+                SELECT 
+                    AccountID, 
+                    StartTime, 
+                    DATE_ADD(StartTime, INTERVAL 1 HOUR) AS EndTime -- Calculate EndTime
+                FROM ScanIns;
+            
+                -- Step 2: Delete rows from ScanIns after transfer
+                DELETE FROM ScanIns;
+            END$$
+            
+            DELIMITER ;`);*/
+            res.send("Scripts Created");
+    }
+    catch(err)
+    {
+        res.send(Error("Error in Creating Scripts: " + err).message);
+    }
+}
+
+export async function CreateDB()
+{
+    try {
+        await pool.query("DROP DATABASE IF EXISTS `makerspacedb`");
+        //For Testing Purposes only...Delete ^ When we actually deploy
+        await pool.query("CREATE DATABASE IF NOT EXISTS `makerspacedb`");
+        console.log("Created Database");
+    }
+    catch(err){
+        console.log("Error in Creating DB tables: " + err);
+    }  
+}
+
+export async function CreateTables()
+{
+    try {
+        await pool.query("DROP TABLE IF EXISTS `ScanIns`, `Reservations`, `ReservationHistory`, `ScanHistory`, `RegistrationVerificationCodes`, `Admins`, `Reports`, `Devices`");
+        await pool.query("DROP TABLE IF EXISTS `Students`");
+        //For Testing Purposes only...Delete ^ When we actually deploy
+        await pool.query("Create TABLE IF NOT EXISTS `Reports` (`ReportID` int NOT NULL AUTO_INCREMENT, `Type` varchar(30) NOT NULL, `Time` DATETIME NOT NULL, `DeviceID` int not null, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250) NOT NULL, `Created` DATETIME NOT NULL, PRIMARY KEY (`ReportID`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Devices` (`DeviceID` int AUTO_INCREMENT, `DeviceName` varchar(20) NOT NULL, `Description` varchar(250), PRIMARY KEY (`DeviceID`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Students` (`AccountID` varchar(50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `DOB` DATETIME NOT NUll,`EMAIL` varchar(200) NOT NULL,`MAJOR` varchar(4) NOT NULL,`Password` varchar(200) NOT NULL, `QRCode` varchar(50) NOT NULL, `Created` DATETIME not null, PRIMARY KEY (`AccountID`),UNIQUE `QRCode` (`QRCode`), UNIQUE `EMAIL` (`EMAIL`))"); //`StudentID` int (9) NOT NULL UNIQUE `StudentID` (`StudentID`)
+        await pool.query("CREATE TABLE IF NOT EXISTS `ScanIns` (`AccountID` varchar (50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `EMAIL` varchar(200) NOT NULL,`StartTime` DATETIME NOT NULL)"); //Foreign Key FOREIGN KEY (`AccountID`) REFERENCES `Students` (`AccountID`))
+        await pool.query("CREATE TABLE IF NOT EXISTS `Reservations` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL, `FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `EMAIL` varchar(200) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL, PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `ReservationHistory` (`ReservationID` int NOT NULL AUTO_INCREMENT, `AccountID` varchar (50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `EMAIL` varchar(200) NOT NULL,`DeviceID` int NOT NULL,`DeviceName` varchar(20) NOT NULL,`StartTime` datetime DEFAULT NULL,`EndTime` datetime DEFAULT NULL,PRIMARY KEY (`ReservationID`), UNIQUE (`DeviceID`,`DeviceName`,`StartTime`)) "); //.query returns a "query packet", which you assign to arrays. 
+        await pool.query("CREATE TABLE IF NOT EXISTS `ScanHistory` (`AccountID` varchar (50) NOT NULL,`FN` varchar(100) NOT NULL,`LN` varchar(100) NOT NULL, `EMAIL` varchar(200) NOT NULL,`StartTime` DATETIME NOT NULL,`EndTime` DATETIME NOT NULL)");
+        await pool.query("CREATE TABLE IF NOT EXISTS `RegistrationVerificationCodes` (`Email` varchar(100) NOT NULL, `Code` varchar(9), Primary Key(`Email`))");
+        await pool.query("CREATE TABLE IF NOT EXISTS `Admins` (`AccountID` varchar(50) NOT NULL Unique , `Email` varchar(100) NOT NULL Unique, `Password` varchar(50) NOT NULL, Primary Key(`Email`))");
+        console.log("Created Tables");
+    }
+    catch(err){
+        console.log("Error in creating tables: " + err);
+    }  
+}
+//--------------Transaction Helpers--------------------------
+
+export async function StartTranaction()
+{
+    try
+    {
+        await pool.query(`Start Transaction`);
+        return true;
+    }
+    catch(err)
+    {
+        return Error("Error in Starting Transaction" + err);
+    }
+}
+
+export async function RollbackTransaction() {
+    try
+    {
+        await pool.query(`Rollback`);
+        return true;
+    }
+    catch (err)
+    {
+        return Error("Error in Rolling Back Transaction" + err);
+    }
+}   
+
+
+export async function CommitTransaction()
+{
+    try{
+        await pool.query(`Commit`);
+        return true;
+    }
+    catch (err)
+    {
+        return Error("Error in Committing Transaction" + err);
+    }
+}
+
+//-------------------------------------------------------------
 
 
 //--------------Insert Queries------------------------
 
 
 //Query For Registering Users
-export async function RegNewUser (table:string,ID:string,FN:string,LN:string,Email:string,Major:string) { //This function needs to be await as we are accessing a database resource
+export async function RegNewUser (table:string,AccountID:string,FN:string,LN:string,DOB:string,Email:string,Major:string,Password:string,Code:string,Date:string): Promise<any> { //This function needs to be await as we are accessing a database resource
+    let response;
     try {
-        let response =  await pool.query(`INSERT INTO ${table} (STUDENTID,FN,LN,EMAIL,MAJOR) VALUES (?,?,?,?,?)`, [ID,FN,LN,Email,Major]); //.query returns a "query packet", which you assign to arrays. 
-        console.log(response + ": Registered New User");
+        response = await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,DOB,EMAIL,MAJOR,Password,QRCode, Created) VALUES (?,?,?,Date(?),?,?,?,?,?)`, [AccountID,FN,LN,DOB,Email,Major,Password,Code,Date]); //.query returns a "query packet", which you assign to arrays. 
+        return {"success":true,"message": response + ": Registered New User"};
     }
     catch(err){
-        console.log("Error in registering new user: " + err);
+        response = Error("Error in registering new user: " + err);
+        return response;
     }  
+}
+
+export async function ErrorRate()
+{
+    try{ //Will return an array, of deviceId: errorrate key value pairs. 
+        let errors = [];
+        let [rows]:any = pool.query(`Select DeviceID,Count(*) as Count from Reports. Group By DeviceID`);
+        for (let i = 0;i < rows.length; ++i) //For every deviceID we get from reports
+        {
+            let [numberofres]:any = (`Select Count(*) As Count from ReservationHistory where DeviceID = ${rows[i].DeviceID}`); //Get the number of reservations that device has
+            let errorrate;
+            let denominator = numberofres[0].Count; //Set this as the denominator
+            if(denominator === 0)
+            {
+                denominator = 1; //If a device has no reservations, set it equal to one
+            }
+            errorrate = rows[i].Count/denominator; //Find the rate, which is the amount of reports/number of reservations
+            errors.push({"deviceId": rows[i].DeviceID,"errorrate":errorrate}); //Push the key value pair
+        }
+        return errors; //Return Array
+    }
+    catch(err)
+    {
+        Error("Error In Returning Error Rate");
+    }
 }
 //Query For Putting in Scans
-export async function NewScan(table:string, ID:string,Time:string,Date:string)
+export async function NewScan(res: Response, table:string, ID:string, Time:string)
 {
     try {
-        let response =  await pool.query(`INSERT INTO ${table} (STUDENTID,CNTIME,CNDATE) VALUES (?,?,?)` , [ID,Time,Date]); //.query returns a "query packet", which you assign to arrays. 
-        console.log(response + ": New Scan Detected");
+        let [findAcc]:any = await pool.query(`Select AccountID, FN, LN, Email from Students Where QRCode = ?`,[ID]); //Checks to see if the Account associated with the Code being sent exists
+        if (findAcc.length === 0) //If An empty array is returned, the query is not found.
+        {
+            return res.status(400).send({"success": false, "message": "Account Not Found"})
+        }
+        let AccountID = findAcc[0].AccountID; //Set AccountID to the AccoundID we found.
+
+        let [StartTime]:any = await pool.query(`Select StartTime from ScanIns where AccountID = ?`,[AccountID]) //Checks to see if the Student is currently scanned in or not. 
+        if(StartTime.length === 0) //If the Student is not checked in (as we couldn't find their TimeStamp in the ScanIn table...) 
+        {
+            await pool.query(`Insert into ScanIns (AccountID, FN, LN, Email, StartTime) VALUES (?,?,?,?,?)`, [AccountID,findAcc[0].FN,findAcc[0].LN,findAcc[0].Email, Time]); //Check them in.
+            return res.status(200).send({"success":true,"message":`Welcome ${findAcc[0].FN}!`});
+        }
+        else //If the student is checked in
+        {
+            await pool.query(`Insert into ScanHistory (AccountID, FN, LN, Email, StartTime,EndTime) VALUES (?,?,?,?,?,?)`,[AccountID,findAcc[0].FN,findAcc[0].LN,findAcc[0].Email,StartTime[0].StartTime,Time]); //Then this scan is a checkout. We need to add it into Scan History...
+            await pool.query(`Delete from ScanIns where AccountID = ?`,[AccountID]); //... and delete it from the current ScanIn's
+            return res.status(200).send({"status":true, "message":`Goodbye ${findAcc[0].FN}!`});
+        }
     }
     catch(err){
-        console.log("Error in entering new scan: " + err);
+       return res.status(500).send({"success":false,"message":Error("Error in Scan:" + err).message});
     }  
 }
+
+export async function RequestReservation(table:string, accountId: number, deviceName:string, deviceId:number, time:Date)
+{
+    try{
+        let sstime = dayjs(time); 
+        if (sstime.isBefore(dayjs(), 'minute')) {
+            return new Error("Cannot make a reservation for a past time.");
+        }
+        let [AccountInfo] :any  = await pool.query(`Select FN,LN, Email from Students where AccountID = ?`,[accountId]);
+        let timeelapsed = 30; //Number of Hours a reservation slot is...
+        //For below, Student ID is currently a placeholder...make sure we adjust before rollout
+        const startTime = sstime.utc().format('YYYY-MM-DD HH:mm:ss');
+        const endTime = sstime.add(timeelapsed, 'minute').utc().format('YYYY-MM-DD HH:mm:ss');
+        await pool.query(`INSERT INTO ${table} (AccountID, FN,LN,Email,DeviceID, DeviceName, StartTime, EndTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,[accountId,AccountInfo[0].FN,AccountInfo[0].LN,AccountInfo[0].Email,deviceId,deviceName,startTime,endTime]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
+        return true;
+    }
+    catch (err) {
+        return Error("Error in Making Reservation: "+ err);
+    }
+}
+
+export async function SendVerificationEmail(Email:string)
+{
+    let isthereError = false;
+    let errormsg;
+    let verificationcode = Math.random().toString().substring(2,8);
+    try
+    {
+        //Deletes the Email if it Exists Already
+        await pool.query(`DELETE FROM RegistrationVerificationCodes Where Email = ?`, Email);
+        await pool.query(`Insert into RegistrationVerificationCodes (Email, Code) VALUES (?,?)`,[Email,verificationcode]);
+        console.log("Query Send");
+    }
+    catch(err)
+    {
+        isthereError = true;
+        errormsg = err;
+    }
+    if(isthereError)
+        {
+            return Error("Error in Logging Code in DB" + errormsg);
+        }
+    try
+    {
+        var transporter = nodemailer.createTransport({
+            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+              user: process.env.Makerspace_Email,
+              pass: process.env.Makerspace_Email_Password
+            }
+          });
+        var mailOptions = {
+            from: process.env.Makerspace_Email,
+            to: Email,
+            subject: "Email Verification Code",
+            text: `Thank you for your interest in the makerspace. To complete the registration process, enter the following code with your information on the registration page: ${verificationcode}. Thank you for joining the Makerspace!`
+          };
+          await transporter.sendMail(mailOptions);
+    }
+    catch(err)
+    {
+        isthereError = true;
+        errormsg = err;
+    }
+    if(isthereError)
+    {
+        console.log("Returning Error");
+        return Error("Error in Sending Email" + errormsg);
+    }
+    else
+    {
+        console.log("Returning Success Statement");
+        return {"success":true, "message":"Verification Information Sent and Logged Successfully"};
+    }
+
+}
+//Submitting a report to the backend
+export async function SubmitReport(T:string,Time:string,ID:number,Device:string,Description:string)
+{
+  try
+  {
+      await pool.query("Insert into Reports (Type,Time,DeviceID,DeviceName,Description,Created) values (?,?,?,?,?,Now())",[T,Time,ID,Device,Description]);
+  }
+  catch (err)
+  {
+      return Error("Error in Submitting Report: " + err);
+  }
+}
+//Query for cancelling reservation
+export async function CancelReservation(query:string)
+{
+  try
+  {
+      await pool.query(query);
+      return true;
+  }
+  catch(err)
+  {
+      return Error("Error in Cancelling Reservation: " + err);
+  }
+}
+
+//Query for Adding a device to our Database
+export async function CreateDevice(Name:string,Description:string)
+{
+  try
+  {
+      await pool.query(`Insert into Devices (DeviceName,Description) VALUES (?,?)`, [Name, Description]);
+  }
+  catch(err)
+  {
+      return Error("Error in Creating Device:" + err);
+  }
+}
+
+
+
+
 
 //----------------Select Queries----------------------
 
+export async function GetQRCode(AccID:string) 
+{
+    try{
+        const [rows] :any  = await pool.query(`Select QRCode FROM Students WHERE AccountID = ?`, AccID); //Should only return one...
+        return rows;
+    }
+    catch(err)
+    {
+        return Error("Error in Returning QR Code: " + err);
+    }
+}
 
-export async function GetUserData (): Promise<QueryResult> {
-    const [rows] = await pool.query("SELECT * FROM student");
+export async function GetUserData () {
+    try{
+        const [rows] = await pool.query("SELECT * FROM Students");
     return rows;
+    }
+    catch(err)
+    {
+        return Error("Error in Returning QR Code: " + err);
+    }
+    
 }
 
 export async function ReturnDates (table:string, fullDate:string)
@@ -59,7 +446,9 @@ export async function ReturnDates (table:string, fullDate:string)
 export async function ReturnDevices (table:string, fullDate:string)
 {
     try{
-        const [rows] = await pool.query(`SELECT deviceName,deviceID,starttime,endtime,resstatus FROM ${table} where starttime BETWEEN now() AND Date(?) ORDER BY deviceID`,[fullDate]) //Get Which Devices have reservations
+        console.log("Querying for date:", fullDate);
+        const [rows] = await pool.query(`SELECT deviceName,deviceID,starttime,endtime FROM ${table} where DATE(starttime) = ? ORDER BY deviceID`,[fullDate]) //Get Which Devices have reservations
+        console.log("Query result:", rows);
         return rows;
     }
     catch (err) {
@@ -67,22 +456,179 @@ export async function ReturnDevices (table:string, fullDate:string)
     }
 }
 
-export async function RequestReservation(table:string, device:string, ID:string, time:Date)
+export async function checkinhistory(res:Response,query:string,query2:string)
 {
     try{
-        let sstime = new Date(time); 
-        let timeelapsed = .5; //Number of Hours a reservation slot is...
-        //For below, Student ID is currently a placeholder...make sure we adjust before rollout
-        //await pool.query(`INSERT INTO ${table} (studentID, deviceID, deviceName, starttime, endtime, resstatus) VALUES ('S67890', ?, ?, ?, ?, 'Reserved');`,[ID,device,sstime,new Date(sstime.setHours(sstime.getHours() + timeelapsed))]); //ENSURE RESERVATIONS TABLE HAS UNIQUE (DEVICEID AND STARTTIME) FUNCTIONALITY
-        return [1, "NA"];
+        const [scanhistory] = await pool.query(query); //Get the reservations based on the query
+        const [reservationhistory] = await pool.query(query2); 
+        let returnmessage = {"success": true, "messasage": "Success in returning info", "scanHistory": scanhistory, "reservationHistory":reservationhistory}
+        return res.status(200).send(returnmessage);
     }
     catch (err) {
-        const error = err as Error; //This typecasts the err into an Error type, so we can now process it line by line.
-        return [0, error.message.split('\n')[0]];
+        
+        return res.send({"success":false, "message": Error("Error in Returning History: "+ err).message})
+    }
+}
+
+export async function RetreivePassword(Username:string, Database: number)
+{
+    if (Database) //If You are querying in the Student Database
+    {
+        try{
+            const [rows] =  await pool.query(`SELECT AccountID, Password from Students WHERE EMAIL = ?`,[Username]);//Get the reservations based on the query
+            return rows;
+        }
+        catch (err) {
+            return Error("Error in Returning Query of Students: " + err);
+        }
+    }
+   else
+   {
+    try{
+        const [rows] =  await pool.query(`SELECT Password from Admins WHERE EMAIL = ?`,[Username]);//Get the reservations based on the query
+        return rows;
+    }
+    catch (err) {
+        return Error("Error in Returning Query of Admins: " + err);
+    }
+   }
+}
+
+export async function ValidateVerificationCode(req:Request,res:Response,next:NextFunction)
+{
+    let rows : any;
+    try{
+        console.log("Verifying...");
+        console.log(req.body.email);
+        [rows] =  await pool.query(`SELECT Code from RegistrationVerificationCodes WHERE Email = ?`,[req.body.email]);//Get the code based on the email provided by the user
+        console.log(rows);
+    }
+    catch (err) 
+    {
+        return res.status(401).send({"success": false, "message": "Error in retreiving Verification Code for User " + err});
+    }
+    if(rows.length === 0 || !(rows[0].Code === req.body.code)) //If verification code is not the same as the one we have in the DB for that given email
+    {
+        return res.status(401).send({"success": false, "message": "Verification Code is not valid for this email"});
+    }
+    next();
+}
+
+export async function CountUsers(timeframe:number) 
+{
+    let amount;
+    try{
+        switch(timeframe)
+        {
+            
+            case 24: //1 day
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '1 day'`); //Amount doesn't need to be an array as it is a value
+                break;
+            case 7: //7 days
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '1 week`);
+                break;
+            case 30: //30 days
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '1 month'`);
+                break;
+            default: //6 Months
+            amount = await pool.query(`SELECT COUNT(*) FROM Students WHERE CREATED >= NOW() - INTERVAL '6 months'`);
+        }
+        return amount;
+    }
+    catch (err)
+    {
+        return Error("Error in Getting User Count" + err);
+    }
+}
+
+export async function getNumReservations(timeRange: number) {
+    const query = `SELECT DeviceID, DeviceName, COUNT(*) AS count FROM ReservationHistory WHERE StartTime >= NOW() - INTERVAL ? DAY GROUP BY DeviceID, DeviceName`;
+    try{
+        const [rows] = await pool.query(query, [timeRange]);
+        return rows;
+    }   
+    catch(err)
+    {
+        return Error("Error in Getting Number of Reservations: " + err);
+    } 
+    
+    
+}
+
+export async function CountCheckIns(timeRange:number)
+{
+    try
+    {
+        const query = `SELECT COUNT(*) FROM ScanHistory WHERE StartTime >= NOW() - INTERVAL ?`;
+    const rows = await pool.query(query, [timeRange]); //Rows doesn't need to be an array as it is a value
+    return rows;
+    }
+    catch(err)
+    {
+        return Error("Error in Returning Number of CheckIn's: ")
+    }
+    
+}
+
+export async function getPeakTime(timeRange:number) {
+    const query = `
+      SELECT 
+        HOUR(StartTime) AS hour,
+        COUNT(*) AS checkin_count
+      FROM ScanIns
+      WHERE StartTime >= NOW() - INTERVAL ? HOUR
+      GROUP BY HOUR(StartTime)
+      ORDER BY checkin_count DESC
+      LIMIT 1;
+    `;
+    const [rows]:any = await pool.query(query, [timeRange]);
+    if (rows.length > 0) {
+      const peakHour = rows[0].hour;
+      return {
+        start: `${peakHour - 1}:00`,
+        end: `${peakHour + 1}:00`,
+      };
+    }
+    return null;
+  } 
+
+  export async function getCurrentReservations(query: string)
+  {
+    try
+    {
+        let [rows] = await pool.query(query);
+        return rows;
+    }
+    catch(err)
+    {
+        return Error("Error in Current Reservation Query: "+ err);
     }
 }
 
 
+
+export async function GetReports(Time:Number)
+{
+    try{
+        let [rows] = await pool.query(`Select ReportID,Type, Time, DeviceID, Description from Reports where Created >= NOW() - INTERVAL ? Day`, [Time]);
+        return rows;
+    }catch (err)
+    {
+        return Error("Error in getting Reports" + err);
+    }
+}
+
+
+export async function GetDevices()
+{
+    try{
+        let [rows] = await pool.query(`Select * from Devices`);
+        return rows;
+    }catch (err)
+    {
+        return Error("Error in getting Devices: " + err);
+    }
+}
 
 
 /*We are not using this rn
